@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   savedFamilyCode, saveFamilyCode, createFamily, joinFamily,
   watchFamily, watchEntries, updateFamily, addEntry, overwriteEntry, deleteEntry, clearAllData,
+  fetchOlderEntries, fetchAllEntries, LIVE_LIMIT,
 } from './data.js'
 import { ageLabel, fmtMins, weightUnitFor, heightUnitFor, tempUnitFor } from './lib/format.js'
 import { statVals, statDetail } from './lib/derive.js'
@@ -111,6 +112,14 @@ function Main({ code, onSwitchFamily }) {
   const [scope, setScope] = useState('today')
   const [detailKey, setDetailKey] = useState(null)
   const touchRef = useRef(null) // swipe tracking — must sit above the loading returns
+  // History beyond the live window, loaded on demand.
+  const [olderEntries, setOlderEntries] = useState([])
+  const [noMoreOlder, setNoMoreOlder] = useState(false)
+  const allEntries = useMemo(() => {
+    if (!olderEntries.length) return entries
+    const seen = new Set(entries.map((e) => e.id))
+    return entries.concat(olderEntries.filter((e) => !seen.has(e.id)))
+  }, [entries, olderEntries])
   const [filter, setFilter] = useState('all')
   const [showSettings, setShowSettings] = useState(false)
   // In-progress inputs stay local to this phone until an entry is logged.
@@ -438,7 +447,15 @@ function Main({ code, onSwitchFamily }) {
     if (idx >= 0 && idx < TAB_ORDER.length) setTab(TAB_ORDER[idx])
   }
 
-  const stats = statVals(entries, scope, u, now, family.sleepStart)
+  const loadOlder = async () => {
+    const oldest = allEntries.length ? Math.min(...allEntries.map((e) => e.ts)) : Date.now()
+    const more = await fetchOlderEntries(code, oldest)
+    if (more.length < 1000) setNoMoreOlder(true)
+    setOlderEntries((prev) => prev.concat(more))
+  }
+  const canLoadOlder = !noMoreOlder && (entries.length >= LIVE_LIMIT || olderEntries.length > 0)
+
+  const stats = statVals(allEntries, scope, u, now, family.sleepStart)
   const headerSub = [
     ageLabel(family.birth, now),
     new Date(now).toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' }),
@@ -484,7 +501,7 @@ function Main({ code, onSwitchFamily }) {
             </div>
           ))}
         </div>
-        {detailKey && <div className="stat-detail">{statDetail(detailKey, entries, scope, u, now)}</div>}
+        {detailKey && <div className="stat-detail">{statDetail(detailKey, allEntries, scope, u, now)}</div>}
 
         <main className="app-main" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
           {tab === 'track' ? (
@@ -500,7 +517,7 @@ function Main({ code, onSwitchFamily }) {
             />
           ) : tab === 'health' ? (
             <HealthTab
-              entries={entries} u={u} timeFormat={timeFormat} now={now}
+              entries={allEntries} u={u} timeFormat={timeFormat} now={now}
               weight={weight} setWeight={setWeight}
               height={height} setHeight={setHeight}
               temp={temp} setTemp={setTemp}
@@ -515,9 +532,11 @@ function Main({ code, onSwitchFamily }) {
             />
           ) : (
             <HistoryTab
-              entries={entries} u={u} timeFormat={timeFormat} now={now}
+              entries={allEntries} u={u} timeFormat={timeFormat} now={now}
               filter={filter} setFilter={setFilter}
               babyName={family.babyName} birth={family.birth}
+              getAllEntries={() => fetchAllEntries(code)}
+              onLoadOlder={loadOlder} canLoadOlder={canLoadOlder}
               onDelete={(id) => {
                 if (window.confirm('Delete this entry?')) deleteEntry(code, id)
               }}

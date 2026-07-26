@@ -10,6 +10,7 @@ import {
   query,
   orderBy,
   limit,
+  where,
   writeBatch,
 } from 'firebase/firestore'
 import { db } from './firebase.js'
@@ -53,9 +54,24 @@ export function watchFamily(code, cb) {
   return onSnapshot(familyRef(code), (snap) => cb(snap.exists() ? snap.data() : null))
 }
 
+// The live subscription is a bounded window of recent entries (~7 weeks of
+// newborn logging); older history loads on demand and exports fetch everything.
+export const LIVE_LIMIT = 2000
+
 export function watchEntries(code, cb) {
-  const q = query(entriesRef(code), orderBy('ts', 'desc'), limit(1000))
+  const q = query(entriesRef(code), orderBy('ts', 'desc'), limit(LIVE_LIMIT))
   return onSnapshot(q, (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))))
+}
+
+export async function fetchOlderEntries(code, beforeTs, count = 1000) {
+  const q = query(entriesRef(code), where('ts', '<', beforeTs), orderBy('ts', 'desc'), limit(count))
+  const snap = await getDocs(q)
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+}
+
+export async function fetchAllEntries(code) {
+  const snap = await getDocs(query(entriesRef(code), orderBy('ts', 'asc')))
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
 }
 
 export function updateFamily(code, fields) {

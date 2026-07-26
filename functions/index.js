@@ -170,6 +170,53 @@ exports.entryChanged = onDocumentWritten({ document: 'families/{code}/entries/{i
   pingWidgets(event.params.code)
 )
 
+// Weekly backup: every family's doc + full entry history as one JSON file in
+// a dedicated Cloud Storage bucket, keeping the 8 most recent snapshots.
+const BACKUP_BUCKET = 'nightfeed-al972-backups'
+
+async function runBackup() {
+  const storage = admin.storage()
+  const bucket = storage.bucket(BACKUP_BUCKET)
+  const [exists] = await bucket.exists()
+  if (!exists) await bucket.create({ location: 'US' })
+  const db = admin.firestore()
+  const families = await db.collection('families').get()
+  const stamp = new Date().toISOString().slice(0, 10)
+  const written = []
+  for (const fam of families.docs) {
+    const entries = await fam.ref.collection('entries').orderBy('ts').get()
+    const payload = JSON.stringify({
+      backedUpAt: new Date().toISOString(),
+      family: fam.data(),
+      entries: entries.docs.map((d) => ({ id: d.id, ...d.data() })),
+    })
+    await bucket.file('backups/' + fam.id + '/' + stamp + '.json').save(payload, { contentType: 'application/json' })
+    written.push(fam.id + ': ' + entries.size + ' entries')
+    const [files] = await bucket.getFiles({ prefix: 'backups/' + fam.id + '/' })
+    const names = files.map((f) => f.name).sort()
+    for (const name of names.slice(0, Math.max(0, names.length - 8))) {
+      await bucket.file(name).delete()
+    }
+  }
+  return written
+}
+
+exports.weeklyBackup = onSchedule(
+  { schedule: 'every monday 03:00', timeZone: 'America/Chicago', region: 'us-central1' },
+  async () => {
+    const written = await runBackup()
+    console.log('backup complete:', written.join(' | '))
+  }
+)
+
+exports.backupNow = onRequest({ region: 'us-central1' }, async (req, res) => {
+  if (req.query.key !== (process.env.TEST_TRIGGER_KEY || 'nf-test-8231')) {
+    res.status(403).send('forbidden')
+    return
+  }
+  res.json({ written: await runBackup() })
+})
+
 // Manual trigger for testing: GET /reminderPushNow?key=<TEST_TRIGGER_KEY>.
 exports.reminderPushNow = onRequest({ region: 'us-central1' }, async (req, res) => {
   if (req.query.key !== (process.env.TEST_TRIGGER_KEY || 'nf-test-8231')) {

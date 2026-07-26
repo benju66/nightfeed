@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { groupDays, trendRows, trendDayLabels } from '../lib/derive.js'
 import { exportCsv, printSummary } from '../lib/export.js'
 
@@ -6,10 +7,49 @@ const FILTERS = [
   ['sleep', 'Sleep'], ['pump', 'Pump'], ['health', 'Health'], ['note', 'Notes'],
 ]
 
-export default function HistoryTab({ entries, u, timeFormat, now, filter, setFilter, babyName, birth, onDelete, onEdit, onAdd }) {
+const PRINT_RANGES = [
+  [7, 'Last 7 days'], [14, 'Last 14 days'], [30, 'Last 30 days'], [0, 'Everything'],
+]
+
+export default function HistoryTab({
+  entries, u, timeFormat, now, filter, setFilter, babyName, birth,
+  onDelete, onEdit, onAdd, getAllEntries, onLoadOlder, canLoadOlder,
+}) {
   const rows = trendRows(entries, u, now)
   const dayLabels = trendDayLabels(now)
   const days = groupDays(entries, filter, timeFormat, now)
+  const [busy, setBusy] = useState('')
+  const [showPrint, setShowPrint] = useState(false)
+
+  // Exports always fetch the complete collection, so they never truncate to
+  // the live window.
+  const doExport = async () => {
+    setBusy('csv')
+    try {
+      exportCsv(await getAllEntries(), timeFormat)
+    } finally {
+      setBusy('')
+    }
+  }
+  const doPrint = async (daysBack, label) => {
+    setShowPrint(false)
+    setBusy('print')
+    try {
+      const all = await getAllEntries()
+      const cutoff = daysBack ? now - daysBack * 86400000 : 0
+      printSummary(all.filter((e) => e.ts >= cutoff), babyName, birth, timeFormat, now, daysBack ? label : '')
+    } finally {
+      setBusy('')
+    }
+  }
+  const doLoadOlder = async () => {
+    setBusy('older')
+    try {
+      await onLoadOlder()
+    } finally {
+      setBusy('')
+    }
+  }
 
   return (
     <>
@@ -41,9 +81,26 @@ export default function HistoryTab({ entries, u, timeFormat, now, filter, setFil
 
       <div style={{ display: 'flex', gap: 8, paddingTop: 2 }}>
         <button className="btn btn-primary" style={{ flex: 1 }} onClick={onAdd}>+ Add entry</button>
-        <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => exportCsv(entries, timeFormat)}>Export CSV</button>
-        <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => printSummary(entries, babyName, birth, timeFormat, now)}>Print</button>
+        <button className="btn btn-secondary" style={{ flex: 1 }} disabled={busy === 'csv'} onClick={doExport}>
+          {busy === 'csv' ? 'Exporting…' : 'Export CSV'}
+        </button>
+        <button className="btn btn-secondary" style={{ flex: 1 }} disabled={busy === 'print'} onClick={() => setShowPrint(true)}>
+          {busy === 'print' ? 'Preparing…' : 'Print'}
+        </button>
       </div>
+
+      {showPrint && (
+        <div className="dialog-backdrop dialog-overlay" onClick={() => setShowPrint(false)}>
+          <div className="dialog elev-lg" style={{ maxWidth: 300, display: 'flex', flexDirection: 'column', gap: 10 }} onClick={(ev) => ev.stopPropagation()}>
+            <div className="dialog-title" style={{ fontSize: 17 }}>Print summary</div>
+            {PRINT_RANGES.map(([d, label]) => (
+              <button key={d} className="btn btn-secondary" style={{ width: '100%', minHeight: 40 }} onClick={() => doPrint(d, label)}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="seg seg-compact" style={{ width: '100%' }}>
         {FILTERS.map(([k, label]) => (
@@ -80,6 +137,12 @@ export default function HistoryTab({ entries, u, timeFormat, now, filter, setFil
           ))}
         </section>
       ))}
+
+      {canLoadOlder && (
+        <button className="btn btn-secondary" style={{ width: '100%', minHeight: 40, marginTop: 4 }} disabled={busy === 'older'} onClick={doLoadOlder}>
+          {busy === 'older' ? 'Loading…' : 'Load older entries'}
+        </button>
+      )}
     </>
   )
 }

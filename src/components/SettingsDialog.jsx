@@ -100,7 +100,12 @@ export default function SettingsDialog({ family, code, onChange, onClose, onSwit
   }
 
   const clearAll = async () => {
-    if (!window.confirm('Delete ALL logged entries and reset timers for this family? This cannot be undone.')) return
+    const typed = window.prompt('This permanently deletes ALL logged data for this family, on both phones. Type your family code to confirm:')
+    if (typed === null) return
+    if (typed.trim().toUpperCase() !== code) {
+      window.alert('That didn’t match the family code — nothing was deleted.')
+      return
+    }
     setClearing(true)
     try {
       await onClearData()

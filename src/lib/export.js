@@ -41,7 +41,7 @@ export function exportCsv(entries, timeFormat) {
   URL.revokeObjectURL(a.href)
 }
 
-export function printSummary(entries, babyName, birth, timeFormat, now) {
+export function printSummary(entries, babyName, birth, timeFormat, now, rangeLabel) {
   const days = groupDays(entries, 'all', timeFormat, now)
   const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]))
   let html =
@@ -52,7 +52,7 @@ export function printSummary(entries, babyName, birth, timeFormat, now) {
     '<h1>' +
     (who ? esc(who) + ' — feeding &amp; care summary' : 'Feeding &amp; care summary') +
     '</h1><p class="sum">' +
-    [age && esc(age), 'Generated ' + new Date(now).toLocaleString()].filter(Boolean).join(' · ') +
+    [age && esc(age), rangeLabel && esc(rangeLabel), 'Generated ' + new Date(now).toLocaleString()].filter(Boolean).join(' · ') +
     '</p>'
   days.forEach((d) => {
     html += '<h2>' + esc(d.label) + '</h2><p class="sum">' + esc(d.summary) + '</p><table><tr><th>Time</th><th>Type</th><th>Detail</th><th>Note</th></tr>'

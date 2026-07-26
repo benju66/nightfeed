@@ -4,7 +4,7 @@ import { fmtDur } from '../lib/format.js'
 // Full-screen breast-feeding mode: the timer zone is one giant finish target,
 // the side tiles keep the dashboard's left/right muscle memory for switching,
 // and the chevron minimizes without stopping.
-export default function FeedFocus({ family, now, onFinish, onSwitch, onTogglePause, onMinimize }) {
+export default function FeedFocus({ family, now, u, amount, setAmount, onFinish, onSwitch, onTogglePause, onMinimize }) {
   // Keep the screen awake for the whole session; the OS releases wake locks
   // when the page hides, so re-acquire on return.
   useEffect(() => {
@@ -34,14 +34,17 @@ export default function FeedFocus({ family, now, onFinish, onSwitch, onTogglePau
   }, [])
 
   const a = family.activeFeed
-  if (!a || a.type === 'bottle') return null
+  if (!a) return null
 
+  const isBottle = a.type === 'bottle'
   const sideSecs = (side) => {
     let s = side === 'left' ? a.leftSecs || 0 : a.rightSecs || 0
     if (a.type === side && !a.paused) s += Math.floor((now - a.start) / 1000)
     return s
   }
-  const totalSecs = sideSecs('left') + sideSecs('right')
+  const totalSecs = isBottle
+    ? (a.doneSecs || 0) + (a.paused ? 0 : Math.floor((now - a.start) / 1000))
+    : sideSecs('left') + sideSecs('right')
 
   const sideTile = (side, label) => {
     const active = a.type === side
@@ -68,24 +71,42 @@ export default function FeedFocus({ family, now, onFinish, onSwitch, onTogglePau
             <path d="M6 9l6 6 6-6" />
           </svg>
         </button>
-        <span className="feed-focus-kicker">{a.paused ? 'Feeding · paused' : 'Feeding · ' + a.type + ' side'}</span>
+        <span className="feed-focus-kicker">
+          {isBottle
+            ? 'Bottle · ' + (a.bottleKind || 'milk') + (a.paused ? ' · paused' : '')
+            : a.paused ? 'Feeding · paused' : 'Feeding · ' + a.type + ' side'}
+        </span>
         <span style={{ width: 36, flex: 'none' }} />
       </div>
       <button className={'feed-finish' + (a.paused ? ' paused' : '')} onClick={onFinish}>
-        <span className="feed-finish-time">{fmtDur(sideSecs(a.type) * 1000)}</span>
-        <span className="feed-finish-detail">
-          L {fmtDur(sideSecs('left') * 1000)} · R {fmtDur(sideSecs('right') * 1000)} · total {fmtDur(totalSecs * 1000)}
-        </span>
-        <span className="feed-finish-hint">Tap anywhere here to finish</span>
+        <span className="feed-finish-time">{fmtDur((isBottle ? totalSecs : sideSecs(a.type)) * 1000)}</span>
+        {!isBottle && (
+          <span className="feed-finish-detail">
+            L {fmtDur(sideSecs('left') * 1000)} · R {fmtDur(sideSecs('right') * 1000)} · total {fmtDur(totalSecs * 1000)}
+          </span>
+        )}
+        <span className="feed-finish-hint">Tap anywhere here to finish{isBottle && amount ? ' · logs ' + amount + ' ' + u : ''}</span>
       </button>
+      {isBottle && (
+        <div className="amount-row">
+          <input
+            className="input" type="number" min="0" inputMode="decimal" placeholder="Amount taken"
+            value={amount} onChange={(ev) => setAmount(ev.target.value)}
+            onClick={(ev) => ev.stopPropagation()} style={{ flex: 1, minHeight: 44 }}
+          />
+          <span className="unit-label">{u}</span>
+        </div>
+      )}
       <button className={'btn timer-btn' + (a.paused ? ' active' : '')} style={{ minHeight: 56, width: '100%' }} onClick={onTogglePause}>
         <span className="timer-name-sm">{a.paused ? 'Resume' : 'Pause'}</span>
-        <span className="timer-sub-sm">{a.paused ? 'Timer stopped — tap when latched again' : 'Burping or a little break'}</span>
+        <span className="timer-sub-sm">{a.paused ? 'Timer stopped — tap to continue' : 'Burping or a little break'}</span>
       </button>
-      <div className="feed-sides">
-        {sideTile('left', 'Left')}
-        {sideTile('right', 'Right')}
-      </div>
+      {!isBottle && (
+        <div className="feed-sides">
+          {sideTile('left', 'Left')}
+          {sideTile('right', 'Right')}
+        </div>
+      )}
     </div>
   )
 }

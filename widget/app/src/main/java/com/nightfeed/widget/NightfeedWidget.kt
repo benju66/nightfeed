@@ -200,7 +200,11 @@ class NightfeedWidget : AppWidgetProvider() {
             var counts = "Today: " + state.todayFeeds + " feeds · " + state.todayDiapers + " diapers"
             if (state.feedAlertHours != null && state.lastFeedStart != null && state.activeFeed == null) {
                 val nextAt = state.lastFeedStart + (state.feedAlertHours * 3600000).toLong()
-                if (nextAt > System.currentTimeMillis()) counts += " · next feed ~" + timeFmt.format(Date(nextAt))
+                val untilMins = ((nextAt - System.currentTimeMillis()) / 60000).toInt()
+                if (untilMins > 0) {
+                    val inTxt = if (untilMins >= 60) (untilMins / 60).toString() + "h " + (untilMins % 60) + "m" else untilMins.toString() + "m"
+                    counts += " · next ~" + timeFmt.format(Date(nextAt)) + " (in " + inTxt + ")"
+                }
             }
             v.setTextViewText(R.id.tv_counts, counts)
 

@@ -27,8 +27,20 @@ export default function TrackTab({
   const ls = last('sleep')
   const awake = family.sleepStart ? 'sleeping now' : ls ? fmtAgo(now - ls.end).replace(' ago', '') : '—'
 
+  // Suggest the starting side: opposite of the last feed's side; after a
+  // both-sides feed, the side that got less time (start where less drained).
+  const lastBreast = entries.filter((e) => e.kind === 'feed' && e.type !== 'bottle').sort((x, y) => y.ts - x.ts)[0]
+  let suggested = null
+  if (!a && lastBreast) {
+    if (lastBreast.type === 'left') suggested = 'right'
+    else if (lastBreast.type === 'right') suggested = 'left'
+    else suggested = (lastBreast.leftSecs || 0) <= (lastBreast.rightSecs || 0) ? 'left' : 'right'
+  }
+
+  const bottleSecs = a && a.type === 'bottle' ? (a.doneSecs || 0) + (a.paused ? 0 : Math.floor((now - a.start) / 1000)) : 0
+
   const feedBtn = (side, label) => {
-    let sub = 'Tap to start'
+    let sub = side === suggested ? 'Tap to start · suggested' : 'Tap to start'
     if (a && a.type === side) sub = fmtDur(sideSecs(side) * 1000) + (a.paused ? ' · paused' : '')
     else if (breastActive) sub = sideSecs(side) ? fmtDur(sideSecs(side) * 1000) + ' · switch' : 'Switch side'
     return (
@@ -99,7 +111,7 @@ export default function TrackTab({
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <button className={'btn timer-btn' + (a && a.type === 'bottle' ? ' active' : '')} style={{ minHeight: 64 }} onClick={() => tapSide('bottle')}>
             <span className="timer-name">Bottle</span>
-            <span className="timer-sub">{a && a.type === 'bottle' ? el(a.start) : 'Tap to start'}</span>
+            <span className="timer-sub">{a && a.type === 'bottle' ? fmtDur(bottleSecs * 1000) + (a.paused ? ' · paused' : '') : 'Tap to start'}</span>
           </button>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
             <div className="seg" style={{ width: '100%' }}>
@@ -111,7 +123,14 @@ export default function TrackTab({
               </label>
             </div>
             <div className="amount-row">
-              <input className="input" type="number" min="0" inputMode="decimal" placeholder="Amount" value={amount} onChange={(ev) => setAmount(ev.target.value)} style={{ flex: 1 }} />
+              <input
+                className="input" type="number" min="0" inputMode="decimal"
+                placeholder={(() => {
+                  const lastBottle = entries.filter((e) => e.kind === 'feed' && e.type === 'bottle' && e.amount).sort((x, y) => y.ts - x.ts)[0]
+                  return lastBottle ? 'Last ' + lastBottle.amount + ' ' + lastBottle.unit : 'Amount'
+                })()}
+                value={amount} onChange={(ev) => setAmount(ev.target.value)} style={{ flex: 1 }}
+              />
               <span className="unit-label">{u}</span>
             </div>
           </div>

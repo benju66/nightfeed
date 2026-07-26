@@ -163,16 +163,14 @@ function Main({ code, onSwitchFamily }) {
     }
   }, [family === undefined, code]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Exit feeding mode when the feed *ends* elsewhere (partner's phone) or
-  // turns into a bottle feed. Transition-based: closing on plain absence would
-  // race the snapshot that follows our own start-write and kill the overlay.
+  // Exit feeding mode when the feed *ends* elsewhere (partner's phone).
+  // Transition-based: closing on plain absence would race the snapshot that
+  // follows our own start-write and kill the overlay.
   const prevFeedRef = useRef(null)
   useEffect(() => {
     if (family === undefined) return
     const cur = family ? family.activeFeed : null
-    const wasBreast = prevFeedRef.current && prevFeedRef.current.type !== 'bottle'
-    const isBreastNow = cur && cur.type !== 'bottle'
-    if (feedFocus && wasBreast && !isBreastNow) setFeedFocus(false)
+    if (feedFocus && prevFeedRef.current && !cur) setFeedFocus(false)
     prevFeedRef.current = cur
   }, [family]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -264,7 +262,8 @@ function Main({ code, onSwitchFamily }) {
     if (!a) return null
     const end = Date.now()
     if (a.type === 'bottle') {
-      const e = { kind: 'feed', type: 'bottle', ts: a.start, end, secs: Math.round((end - a.start) / 1000), bottleKind: a.bottleKind || family.bottleKind || 'milk' }
+      const segSecs = a.paused ? 0 : Math.round((end - a.start) / 1000)
+      const e = { kind: 'feed', type: 'bottle', ts: a.feedStart || a.start, end, secs: (a.doneSecs || 0) + segSecs, bottleKind: a.bottleKind || family.bottleKind || 'milk' }
       const amt = parseFloat(amount)
       if (!isNaN(amt) && amt > 0) {
         e.amount = amt
@@ -308,17 +307,19 @@ function Main({ code, onSwitchFamily }) {
       setFeedFocus(true)
       return
     }
+    // Tapping the ticking bottle re-opens feeding mode too.
+    if (a && a.type === 'bottle' && side === 'bottle') {
+      setFeedFocus(true)
+      return
+    }
     const done = finishFeedEntry()
     if (done) {
       logged(done)
       if (done.amount) setAmount('')
     }
-    if (a && a.type === side) updateFamily(code, { activeFeed: null })
-    else if (side === 'bottle') updateFamily(code, { activeFeed: { type: 'bottle', start: Date.now(), bottleKind: family.bottleKind || 'milk' } })
-    else {
-      updateFamily(code, { activeFeed: { type: side, start: Date.now(), feedStart: Date.now(), leftSecs: 0, rightSecs: 0 } })
-      setFeedFocus(true)
-    }
+    if (side === 'bottle') updateFamily(code, { activeFeed: { type: 'bottle', start: Date.now(), feedStart: Date.now(), bottleKind: family.bottleKind || 'milk' } })
+    else updateFamily(code, { activeFeed: { type: side, start: Date.now(), feedStart: Date.now(), leftSecs: 0, rightSecs: 0 } })
+    setFeedFocus(true)
   }
 
   // Pause (burping, re-latching) freezes the timers without ending the
@@ -326,11 +327,15 @@ function Main({ code, onSwitchFamily }) {
   const togglePauseFeed = () => {
     buzz()
     const a = family.activeFeed
-    if (!a || a.type === 'bottle') return
+    if (!a) return
     if (a.paused) {
       updateFamily(code, { activeFeed: { ...a, paused: false, start: Date.now() } })
+      return
+    }
+    const segSecs = Math.round((Date.now() - a.start) / 1000)
+    if (a.type === 'bottle') {
+      updateFamily(code, { activeFeed: { ...a, paused: true, start: Date.now(), doneSecs: (a.doneSecs || 0) + segSecs } })
     } else {
-      const segSecs = Math.round((Date.now() - a.start) / 1000)
       updateFamily(code, {
         activeFeed: {
           ...a,
@@ -552,10 +557,13 @@ function Main({ code, onSwitchFamily }) {
           <button className={'btn tab-btn' + (tab === 'history' ? ' active' : '')} onClick={() => setTab('history')}>History</button>
         </nav>
 
-        {feedFocus && family.activeFeed && family.activeFeed.type !== 'bottle' && (
+        {feedFocus && family.activeFeed && (
           <FeedFocus
             family={family}
             now={now}
+            u={u}
+            amount={amount}
+            setAmount={setAmount}
             onFinish={finishBreastFeed}
             onSwitch={(s) => tapSide(s)}
             onTogglePause={togglePauseFeed}

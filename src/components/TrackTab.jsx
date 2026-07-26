@@ -46,7 +46,7 @@ export default function TrackTab({
     return (
       <button className={'btn timer-btn' + (a && a.type === side ? ' active' : '')} style={{ minHeight: 78 }} onClick={() => tapSide(side)}>
         <span className="timer-name">{label}</span>
-        <span className="timer-sub">{sub}</span>
+        <span className={'timer-sub' + (!a && side === suggested ? ' suggested' : '')}>{sub}</span>
       </button>
     )
   }

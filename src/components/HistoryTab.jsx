@@ -102,7 +102,7 @@ export default function HistoryTab({
         </div>
       )}
 
-      <div className="seg seg-compact" style={{ width: '100%' }}>
+      <div className="seg seg-roomy" style={{ width: '100%' }}>
         {FILTERS.map(([k, label]) => (
           <label key={k} className="seg-opt" style={{ flex: 1, justifyContent: 'center' }}>
             <input type="radio" name="hist-filter" checked={filter === k} onChange={() => setFilter(k)} />{label}

@@ -143,7 +143,6 @@ class NightfeedWidget : AppWidgetProvider() {
             if (Prefs.code(context) == null) {
                 v.setTextViewText(R.id.tv_state, "Tap to set up")
                 v.setViewVisibility(R.id.chrono_state, View.GONE)
-                v.setViewVisibility(R.id.chrono_fed, View.GONE)
                 val cfg = PendingIntent.getActivity(
                     context, 5, Intent(context, ConfigActivity::class.java),
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
@@ -186,27 +185,25 @@ class NightfeedWidget : AppWidgetProvider() {
                 }
             }
 
-            v.setViewVisibility(R.id.chrono_fed, View.GONE)
+            // Feeding block: last fed + the next-feed forecast right beneath it.
             if (state.lastFeedStart != null) {
                 v.setTextViewText(R.id.tv_fed, "Fed " + timeFmt.format(Date(state.lastFeedStart)) + " · " + ago(state.lastFeedStart))
             } else {
                 v.setTextViewText(R.id.tv_fed, "No feeds yet")
             }
-            v.setTextViewText(
-                R.id.tv_diaper,
-                if (state.lastDiaperTs != null) "Diaper " + timeFmt.format(Date(state.lastDiaperTs)) else "No diapers yet"
-            )
-
-            var counts = "Today: " + state.todayFeeds + " feeds · " + state.todayDiapers + " diapers"
+            v.setViewVisibility(R.id.tv_next, View.GONE)
             if (state.feedAlertHours != null && state.lastFeedStart != null && state.activeFeed == null) {
                 val nextAt = state.lastFeedStart + (state.feedAlertHours * 3600000).toLong()
                 val untilMins = ((nextAt - System.currentTimeMillis()) / 60000).toInt()
                 if (untilMins > 0) {
                     val inTxt = if (untilMins >= 60) (untilMins / 60).toString() + "h " + (untilMins % 60) + "m" else untilMins.toString() + "m"
-                    counts += " · next ~" + timeFmt.format(Date(nextAt)) + " (in " + inTxt + ")"
+                    v.setViewVisibility(R.id.tv_next, View.VISIBLE)
+                    v.setTextViewText(R.id.tv_next, "Next feed ~" + timeFmt.format(Date(nextAt)) + " · in " + inTxt)
                 }
             }
-            v.setTextViewText(R.id.tv_counts, counts)
+
+            val diaperTxt = if (state.lastDiaperTs != null) "Diaper " + timeFmt.format(Date(state.lastDiaperTs)) else "No diapers yet"
+            v.setTextViewText(R.id.tv_counts, diaperTxt + " · Today: " + state.todayFeeds + " feeds · " + state.todayDiapers + " diapers")
 
             v.setTextViewText(R.id.btn_sleep, if (state.sleepStart != null) "Wake" else "Sleep")
 

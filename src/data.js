@@ -31,6 +31,7 @@ export const FAMILY_DEFAULTS = {
   units: 'oz',
   timeFormat: '12h',
   bottleKind: 'milk',
+  feedAlert: { enabled: false, hours: 3 },
   activeFeed: null,
   activePump: null,
   sleepStart: null,

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { joinFamily } from '../data.js'
-import { VITD_DEFAULTS, scheduleText } from '../lib/reminders.js'
+import { VITD_DEFAULTS, FEED_ALERT_DEFAULTS, scheduleText } from '../lib/reminders.js'
 import { pushSupported, enablePush, disablePush } from '../lib/push.js'
 
 export default function SettingsDialog({ family, code, onChange, onClose, onSwitchFamily, onClearData }) {
@@ -13,6 +13,7 @@ export default function SettingsDialog({ family, code, onChange, onClose, onSwit
   const timeFormat = family.timeFormat || '12h'
   const bottleKind = family.bottleKind || 'milk'
   const vitd = { ...VITD_DEFAULTS, ...(family.vitdReminder || {}) }
+  const feedAlert = { ...FEED_ALERT_DEFAULTS, ...(family.feedAlert || {}) }
   const reminders = family.reminders || []
 
   // Add-reminder mini-form
@@ -175,6 +176,21 @@ export default function SettingsDialog({ family, code, onChange, onClose, onSwit
           <span className="set-kicker">Reminders</span>
           <div className="field">
             <div className="reminder-settings">
+              <div className="reminder-row">
+                <button
+                  className={'btn rem-toggle' + (feedAlert.enabled ? ' btn-primary' : ' btn-secondary')}
+                  onClick={() => onChange({ feedAlert: { ...feedAlert, enabled: !feedAlert.enabled } })}
+                >{feedAlert.enabled ? 'On' : 'Off'}</button>
+                <span className="reminder-label">Feeding gap alert</span>
+                <div className="rem-hours" style={{ flex: 'none', width: 74 }}>
+                  <input
+                    className="input" type="number" min="0.5" step="0.5" inputMode="decimal"
+                    value={feedAlert.hours}
+                    onChange={(ev) => onChange({ feedAlert: { ...feedAlert, hours: Math.max(0.5, parseFloat(ev.target.value) || 3) } })}
+                  />
+                  <span className="unit-label">h</span>
+                </div>
+              </div>
               <div className="reminder-row">
                 <button
                   className={'btn rem-toggle' + (vitd.enabled ? ' btn-primary' : ' btn-secondary')}

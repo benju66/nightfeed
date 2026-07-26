@@ -27,6 +27,7 @@ class NightfeedWidget : AppWidgetProvider() {
 
     override fun onUpdate(context: Context, mgr: AppWidgetManager, ids: IntArray) {
         schedule(context)
+        Topics.subscribe(context)
         refreshNow(context)
     }
 
@@ -44,6 +45,12 @@ class NightfeedWidget : AppWidgetProvider() {
                     .enqueue(OneTimeWorkRequestBuilder<WetWorker>().setConstraints(net()).build())
             }
             ACTION_REFRESH -> refreshNow(context)
+            // APK was just updated: re-assert the push subscription and schedule.
+            Intent.ACTION_MY_PACKAGE_REPLACED -> {
+                schedule(context)
+                Topics.subscribe(context)
+                refreshNow(context)
+            }
         }
     }
 
@@ -89,6 +96,14 @@ class NightfeedWidget : AppWidgetProvider() {
         // Chronometer counts from an elapsedRealtime base; anchor it to a wall-clock event.
         private fun chronoBase(eventTs: Long): Long =
             SystemClock.elapsedRealtime() - (System.currentTimeMillis() - eventTs)
+
+        // Minutes/hours granularity — refreshed on every render (push + poll).
+        private fun ago(ts: Long): String {
+            val mins = ((System.currentTimeMillis() - ts) / 60000).toInt()
+            if (mins < 1) return "just now"
+            val h = mins / 60
+            return (if (h > 0) h.toString() + "h " + (mins % 60) + "m" else mins.toString() + "m") + " ago"
+        }
 
         fun buildViews(context: Context, state: WidgetState?): RemoteViews {
             val v = RemoteViews(context.packageName, R.layout.widget)
@@ -146,13 +161,11 @@ class NightfeedWidget : AppWidgetProvider() {
                 }
             }
 
+            v.setViewVisibility(R.id.chrono_fed, View.GONE)
             if (state.lastFeedStart != null) {
-                v.setTextViewText(R.id.tv_fed, "Fed " + timeFmt.format(Date(state.lastFeedStart)) + " ·")
-                v.setViewVisibility(R.id.chrono_fed, View.VISIBLE)
-                v.setChronometer(R.id.chrono_fed, chronoBase(state.lastFeedStart), null, true)
+                v.setTextViewText(R.id.tv_fed, "Fed " + timeFmt.format(Date(state.lastFeedStart)) + " · " + ago(state.lastFeedStart))
             } else {
                 v.setTextViewText(R.id.tv_fed, "No feeds yet")
-                v.setViewVisibility(R.id.chrono_fed, View.GONE)
             }
             v.setTextViewText(
                 R.id.tv_diaper,
@@ -174,6 +187,7 @@ class NightfeedWidget : AppWidgetProvider() {
 
 class RefreshWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) {
     override fun doWork(): Result {
+        Topics.subscribe(applicationContext) // idempotent; heals lost subscriptions
         val code = Prefs.code(applicationContext) ?: run {
             NightfeedWidget.render(applicationContext, null)
             return Result.success()

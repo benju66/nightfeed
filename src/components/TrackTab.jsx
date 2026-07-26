@@ -73,10 +73,10 @@ export default function TrackTab({
                   {r.label}
                   {r.who === 'mom' && <span className="reminder-who"> · mom</span>}
                 </span>
-                {r.takenAt != null && <span className="reminder-taken">taken {fmtClock(r.takenAt, timeFormat)}</span>}
+                {r.takenAt != null && <span className="reminder-taken">{r.takenLabel || 'taken'} {fmtClock(r.takenAt, timeFormat)}</span>}
               </div>
               <span className={'reminder-status' + (r.due ? ' due' : '')}>{r.status}</span>
-              {(r.due || !r.builtin) && (
+              {!r.noLog && (r.due || !r.builtin) && (
                 <button
                   className={'btn' + (r.due ? ' btn-primary' : ' btn-secondary')}
                   style={{ minHeight: 30, fontSize: 12.5, padding: '3px 12px' }}

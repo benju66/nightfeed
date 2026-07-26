@@ -22,12 +22,25 @@ const parseHHMM = (t) => {
 }
 
 // Returns [{key, body, stateValue}] — stateValue marks this send in notifState.
-function dueReminders(family, vitdDoneToday, now) {
+function dueReminders(family, vitdDoneToday, lastFeedStart, now) {
   const out = []
   const state = family.notifState || {}
   const tz = family.tz
   const today = tz ? dayKeyTz(now, tz) : null
   const minsNow = tz ? minutesOfDayTz(now, tz) : null
+
+  // Feeding-gap alert: N hours since the last feed started, and nothing
+  // currently running. One notification per feed cycle.
+  const fa = family.feedAlert || {}
+  if (fa.enabled && !family.activeFeed && lastFeedStart) {
+    const hours = Math.max(0.5, fa.hours || 3)
+    const dueAt = lastFeedStart + hours * 3600000
+    if (now >= dueAt && state['feedalert'] !== dueAt) {
+      const mins = Math.floor((now - lastFeedStart) / 60000)
+      const ago = Math.floor(mins / 60) + 'h ' + (mins % 60) + 'm'
+      out.push({ key: 'feedalert', body: 'Feeding due — last fed ' + ago + ' ago', stateValue: dueAt })
+    }
+  }
 
   // Dedupe keys include the configured time, so editing a reminder's time
   // re-arms it the same day instead of staying suppressed until tomorrow.
@@ -69,16 +82,23 @@ async function processFamilies() {
     if (subsSnap.empty) continue
 
     let vitdDoneToday = false
-    if (family.vitdReminder && family.vitdReminder.enabled && family.tz) {
-      const today = dayKeyTz(now, family.tz)
-      const recent = await fam.ref.collection('entries').where('ts', '>=', now - 36 * 3600000).get()
-      vitdDoneToday = recent.docs.some((d) => {
+    let lastFeedStart = null
+    const needVitd = family.vitdReminder && family.vitdReminder.enabled && family.tz
+    const needFeed = family.feedAlert && family.feedAlert.enabled
+    if (needVitd || needFeed) {
+      const recent = await fam.ref.collection('entries').where('ts', '>=', now - 48 * 3600000).get()
+      const today = family.tz ? dayKeyTz(now, family.tz) : null
+      for (const d of recent.docs) {
         const e = d.data()
-        return e.kind === 'health' && e.type === 'vitd' && dayKeyTz(e.ts, family.tz) === today
-      })
+        if (needVitd && e.kind === 'health' && e.type === 'vitd' && dayKeyTz(e.ts, family.tz) === today) vitdDoneToday = true
+        if (e.kind === 'feed' && (!lastFeedStart || e.ts > lastFeedStart)) lastFeedStart = e.ts
+      }
+      const af = family.activeFeed
+      const activeStart = af ? af.feedStart || af.start : null
+      if (activeStart && (!lastFeedStart || activeStart > lastFeedStart)) lastFeedStart = activeStart
     }
 
-    const due = dueReminders(family, vitdDoneToday, now)
+    const due = dueReminders(family, vitdDoneToday, lastFeedStart, now)
     if (!due.length) continue
 
     for (const d of due) {

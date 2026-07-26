@@ -3,9 +3,10 @@
 // be for the baby or for mom. All reminder config lives on the family doc so
 // both phones agree; whether a given phone shows system notifications is a
 // local, per-device choice.
-import { dayKey, fmtClock } from './format.js'
+import { dayKey, fmtClock, fmtAgo } from './format.js'
 
 export const VITD_DEFAULTS = { enabled: false, time: '09:00' }
+export const FEED_ALERT_DEFAULTS = { enabled: false, hours: 3 }
 
 function todayAt(time, now) {
   const [h, m] = (time || '09:00').split(':').map(Number)
@@ -24,6 +25,35 @@ function untilText(ms) {
 // enabled reminder. `status` is display text; `due` means actionable now.
 export function reminderStates(family, entries, now, timeFormat) {
   const out = []
+
+  // Feeding-gap alert: due when it's been more than N hours since the last
+  // feed STARTED and no feed is running. Display-only — the "action" is
+  // feeding, done via the feed buttons.
+  const fa = { ...FEED_ALERT_DEFAULTS, ...(family.feedAlert || {}) }
+  if (fa.enabled) {
+    const af = family.activeFeed
+    let last = entries.filter((e) => e.kind === 'feed').reduce((m, e) => Math.max(m, e.ts), 0) || null
+    const activeStart = af ? af.feedStart || af.start : null
+    if (activeStart && (!last || activeStart > last)) last = activeStart
+    if (last) {
+      const hours = Math.max(0.5, fa.hours || 3)
+      const dueAt = last + hours * 3600000
+      const due = !af && now >= dueAt
+      out.push({
+        key: 'feedalert',
+        label: 'Feeding',
+        who: 'baby',
+        builtin: true,
+        noLog: true,
+        due,
+        dueAt,
+        takenAt: last,
+        takenLabel: 'last fed',
+        status: af ? 'feeding now' : due ? 'Due — ' + fmtAgo(now - last) : untilText(dueAt - now),
+      })
+    }
+  }
+
   const vitd = { ...VITD_DEFAULTS, ...(family.vitdReminder || {}) }
   if (vitd.enabled) {
     const doneToday = entries.some((e) => e.kind === 'health' && e.type === 'vitd' && dayKey(e.ts) === dayKey(now))

@@ -105,7 +105,7 @@ object StateBuilder {
             lastSleepEnd = lastSleepEnd,
             todayFeeds = todayFeeds,
             todayDiapers = todayDiapers,
-            dueReminder = computeDueReminder(f, vitdDoneToday, now),
+            dueReminder = computeDueReminder(f, vitdDoneToday, lastFeedStart, activeFeed != null, now),
             fetchedAt = now,
         )
     }
@@ -127,7 +127,13 @@ object StateBuilder {
     }
 
     // Mirrors the app's reminder logic closely enough for a due/not-due line.
-    private fun computeDueReminder(f: JSONObject, vitdDoneToday: Boolean, now: Long): String? {
+    private fun computeDueReminder(f: JSONObject, vitdDoneToday: Boolean, lastFeedStart: Long?, feeding: Boolean, now: Long): String? {
+        val fa = map(f.optJSONObject("feedAlert"))
+        if (fa != null && bool(fa.optJSONObject("enabled")) && !feeding && lastFeedStart != null) {
+            val hours = numD(fa.optJSONObject("hours")) ?: 3.0
+            if (now >= lastFeedStart + (hours * 3600000).toLong()) return "Feeding due"
+        }
+
         val vitd = map(f.optJSONObject("vitdReminder"))
         if (vitd != null && bool(vitd.optJSONObject("enabled")) && !vitdDoneToday &&
             minutesOfDayNow() >= parseHHMM(str(vitd.optJSONObject("time")))

@@ -28,5 +28,8 @@ Newborn feeding & care tracker PWA — two parents' Android phones, realtime sha
 - Three tabs: Track (feed/diaper/sleep/pump + reminders + quick note), Health (vitD/weight/height/temp/med logging + growth charts + health-only entry list), History (7-day trend, export, filterable full log). Vitamin D daily logging stays one-tap on Track via the reminders card.
 - PWA app shortcuts (long-press icon): feed-left/feed-right/diaper-wet/sleep via `?action=` param, handled once after the family doc loads then stripped from the URL. Sleep action only starts (never toggles off) sleep.
 
+## Companion widget (widget/)
+Separate native Android app providing a 4x2 home-screen widget — deliberately NOT part of the PWA so the web app keeps instant deploys. Kotlin, RemoteViews with Chronometers (live tickers work; data refresh is WorkManager every 15 min + on action). Reads/writes Firestore via REST with the family code (entered in ConfigActivity, stored in SharedPreferences). Wet button logs a diaper directly; Feed L/R deep-link to the PWA's ?action= URLs. Built by .github/workflows/widget.yml (Gradle 8.9/AGP 8.5.2, debug APK) and published to the GitHub release tagged `widget-latest` — phones sideload from there. Widget's reminder/due logic mirrors functions/index.js — keep in sync when reminder semantics change.
+
 ## Design fidelity
 `src/styles.css` is the Nocturne design system — never edit it, never hard-code values its tokens carry. App-specific classes live in `src/app.css`, mirroring the prototype's inline styles.

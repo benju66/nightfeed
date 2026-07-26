@@ -35,3 +35,5 @@ Separate native Android app providing a 4x2 home-screen widget — deliberately 
 
 ## Design fidelity
 `src/styles.css` is the Nocturne design system — never edit it, never hard-code values its tokens carry. App-specific classes live in `src/app.css`, mirroring the prototype's inline styles.
+
+**Deliberate deviation (user-approved 2026-07-26):** a legibility pass in app.css overrides the prototype's density for the "low-energy parent" brief — muted text floor 65–75% opacity (was 45–55%), nothing under 11px, time-since values 16px/500, 44px tap targets (delete ×, history filter). Don't "restore fidelity" by reverting these.

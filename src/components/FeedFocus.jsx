@@ -1,9 +1,38 @@
+import { useEffect } from 'react'
 import { fmtDur } from '../lib/format.js'
 
 // Full-screen breast-feeding mode: the timer zone is one giant finish target,
 // the side tiles keep the dashboard's left/right muscle memory for switching,
 // and the chevron minimizes without stopping.
 export default function FeedFocus({ family, now, onFinish, onSwitch, onTogglePause, onMinimize }) {
+  // Keep the screen awake for the whole session; the OS releases wake locks
+  // when the page hides, so re-acquire on return.
+  useEffect(() => {
+    let lock = null
+    let closed = false
+    const acquire = async () => {
+      try {
+        lock = await navigator.wakeLock?.request('screen')
+      } catch (e) {
+        /* unsupported or denied — screen just sleeps as usual */
+      }
+    }
+    const onVis = () => {
+      if (document.visibilityState === 'visible' && !closed) acquire()
+    }
+    acquire()
+    document.addEventListener('visibilitychange', onVis)
+    return () => {
+      closed = true
+      document.removeEventListener('visibilitychange', onVis)
+      try {
+        lock?.release()
+      } catch (e) {
+        /* already released */
+      }
+    }
+  }, [])
+
   const a = family.activeFeed
   if (!a || a.type === 'bottle') return null
 

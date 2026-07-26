@@ -3,7 +3,7 @@ import { toLocalDT, weightUnitFor, heightUnitFor, tempUnitFor } from '../lib/for
 
 const KINDS = [
   ['feed', 'Feed'], ['bottle', 'Bottle'], ['pump', 'Pump'],
-  ['diaper', 'Diaper'], ['sleep', 'Sleep'], ['health', 'Health'],
+  ['diaper', 'Diaper'], ['sleep', 'Sleep'], ['health', 'Health'], ['note', 'Note'],
 ]
 const HEALTH_TYPES = [
   ['vitd', 'Vit D'], ['weight', 'Weight'], ['height', 'Height'], ['temp', 'Temp'], ['med', 'Med'],
@@ -121,6 +121,9 @@ export default function EntryDialog({ entry, now, u, defaultBottleKind, onSave, 
       e.kind = 'sleep'
       e.secs = secsFromMins(f.mins)
       e.end = ts + e.secs * 1000
+    } else if (f.kind === 'note') {
+      if (!note) return null
+      e.kind = 'note'
     } else {
       e.kind = 'health'
       e.type = f.healthType
@@ -269,7 +272,7 @@ export default function EntryDialog({ entry, now, u, defaultBottleKind, onSave, 
           </div>
           <div className="field">
             <label>Note</label>
-            <input className="input" type="text" placeholder="optional" value={f.note} onChange={setEv('note')} />
+            <input className="input" type="text" placeholder={f.kind === 'note' ? 'What do you want to remember?' : 'optional'} value={f.note} onChange={setEv('note')} />
           </div>
         </div>
         <div className="dialog-actions">

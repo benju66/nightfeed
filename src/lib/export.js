@@ -17,6 +17,7 @@ export function buildCsv(entries, timeFormat) {
       else if (e.kind === 'health')
         detail = { vitd: 'vitamin D', weight: 'weight', height: 'height', temp: 'temperature' }[e.type] || (e.who === 'mom' ? 'mom - ' : '') + (e.med || 'medicine')
       else if (e.kind === 'diaper') detail = e.type === 'both' ? 'wet + solid' : e.type
+      else if (e.kind === 'note') detail = 'note'
       rows.push([
         d.toLocaleDateString(),
         fmtClock(e.ts, timeFormat),

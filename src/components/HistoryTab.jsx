@@ -3,7 +3,7 @@ import { exportCsv, printSummary } from '../lib/export.js'
 
 const FILTERS = [
   ['all', 'All'], ['feed', 'Feeds'], ['diaper', 'Diapers'],
-  ['sleep', 'Sleep'], ['pump', 'Pump'], ['health', 'Health'],
+  ['sleep', 'Sleep'], ['pump', 'Pump'], ['health', 'Health'], ['note', 'Notes'],
 ]
 
 export default function HistoryTab({ entries, u, timeFormat, now, filter, setFilter, babyName, birth, onDelete, onEdit, onAdd }) {
@@ -45,7 +45,7 @@ export default function HistoryTab({ entries, u, timeFormat, now, filter, setFil
         <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => printSummary(entries, babyName, birth, timeFormat, now)}>Print</button>
       </div>
 
-      <div className="seg" style={{ width: '100%' }}>
+      <div className="seg seg-compact" style={{ width: '100%' }}>
         {FILTERS.map(([k, label]) => (
           <label key={k} className="seg-opt" style={{ flex: 1, justifyContent: 'center' }}>
             <input type="radio" name="hist-filter" checked={filter === k} onChange={() => setFilter(k)} />{label}

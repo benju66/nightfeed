@@ -220,15 +220,34 @@ function Main({ code, onSwitchFamily }) {
 
   const u = family.units || 'oz'
   const timeFormat = family.timeFormat || '12h'
+  // Haptic confirmation for blind 3am taps; silently no-ops where unsupported.
+  const buzz = () => {
+    try {
+      navigator.vibrate?.(25)
+    } catch (e) {
+      /* no haptics */
+    }
+  }
   const takeNote = (e) => {
     const n = note.trim()
     if (n) e.note = n
     return e
   }
   const logged = (e) => {
+    buzz()
     const id = addEntry(code, takeNote(e))
     setNote('')
     return id
+  }
+
+  // A note as its own entry — a thought or question for the log, not attached
+  // to any event.
+  const logNote = () => {
+    const n = note.trim()
+    if (!n) return
+    buzz()
+    addEntry(code, { kind: 'note', ts: Date.now(), note: n })
+    setNote('')
   }
 
   const finishFeedEntry = () => {
@@ -257,6 +276,7 @@ function Main({ code, onSwitchFamily }) {
 
   const isBreast = (t) => t === 'left' || t === 'right'
   const tapSide = (side) => {
+    buzz()
     const a = family.activeFeed
     if (a && isBreast(a.type) && isBreast(side)) {
       // Tapping the ticking side re-opens feeding mode; stopping happens there.
@@ -295,6 +315,7 @@ function Main({ code, onSwitchFamily }) {
   // Pause (burping, re-latching) freezes the timers without ending the
   // session; the state lives on the family doc so both phones agree.
   const togglePauseFeed = () => {
+    buzz()
     const a = family.activeFeed
     if (!a || a.type === 'bottle') return
     if (a.paused) {
@@ -333,6 +354,7 @@ function Main({ code, onSwitchFamily }) {
   }
 
   const tapPump = (side) => {
+    buzz()
     const p = family.activePump
     if (p) {
       const end = Date.now()
@@ -350,6 +372,7 @@ function Main({ code, onSwitchFamily }) {
   }
 
   const tapSleep = () => {
+    buzz()
     if (family.sleepStart) {
       const end = Date.now()
       logged({ kind: 'sleep', ts: family.sleepStart, end, secs: Math.round((end - family.sleepStart) / 1000) })
@@ -470,7 +493,7 @@ function Main({ code, onSwitchFamily }) {
               amount={amount} setAmount={setAmount}
               pumpAmount={pumpAmount} setPumpAmount={setPumpAmount}
               note={note} setNote={setNote}
-              reminders={reminders} logReminder={logReminder}
+              reminders={reminders} logReminder={logReminder} logNote={logNote}
               tapSide={tapSide} tapPump={tapPump} tapSleep={tapSleep}
               logDiaper={logDiaper}
               setBottleKind={(k) => updateFamily(code, { bottleKind: k })}

@@ -3,7 +3,7 @@ import { fmtDur, fmtClock, fmtAgo } from '../lib/format.js'
 export default function TrackTab({
   family, entries, now, u, timeFormat,
   amount, setAmount, pumpAmount, setPumpAmount, note, setNote,
-  reminders, logReminder,
+  reminders, logReminder, logNote,
   tapSide, tapPump, tapSleep, logDiaper, setBottleKind,
 }) {
   const a = family.activeFeed
@@ -149,8 +149,13 @@ export default function TrackTab({
       </section>
 
       <section className="field" style={{ padding: '2px 2px 0' }}>
-        <label htmlFor="nf-note">Quick note — attached to the next entry you log</label>
-        <input id="nf-note" className="input" type="text" placeholder="e.g. spit up a little, fussy latch…" value={note} onChange={(ev) => setNote(ev.target.value)} />
+        <label htmlFor="nf-note">Quick note — attaches to the next entry, or log it on its own</label>
+        <input id="nf-note" className="input" type="text" placeholder="e.g. spit up a little, ask doctor about…" value={note} onChange={(ev) => setNote(ev.target.value)} />
+        {note.trim() && (
+          <button className="btn btn-secondary" style={{ width: '100%', minHeight: 32, fontSize: 13, marginTop: 6 }} onClick={logNote}>
+            Log note on its own
+          </button>
+        )}
       </section>
     </>
   )

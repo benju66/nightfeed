@@ -28,12 +28,17 @@ export function rowFor(e, timeFormat) {
     tag = 'Diaper'
     tagClass = 'tag-neutral'
     detail = e.type === 'both' ? 'Wet + solid' : e.type === 'wet' ? 'Wet' : 'Solid'
+  } else if (e.kind === 'note') {
+    tag = 'Note'
+    tagClass = 'tag-neutral'
+    detail = e.note || ''
   } else {
     tag = 'Sleep'
     tagClass = 'tag-outline'
     detail = fmtMins(e.secs) + ' · woke ' + fmtClock(e.end, timeFormat)
   }
-  return { id: e.id, time: fmtClock(e.ts, timeFormat), tag, tagClass, detail, note: e.note || '', entry: e }
+  // Standalone notes show their text as the detail line, not duplicated below.
+  return { id: e.id, time: fmtClock(e.ts, timeFormat), tag, tagClass, detail, note: e.kind === 'note' ? '' : e.note || '', entry: e }
 }
 
 export function groupDays(entries, filter, timeFormat, now) {

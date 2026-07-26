@@ -18,10 +18,11 @@ export default function TrackTab({
     return s
   }
 
-  // Time-since row
+  // Time-since row. "Last fed" counts from the feed's START (standard
+  // feeding-interval convention); "Awake" counts from the sleep's end.
   const last = (kind) => entries.filter((e) => e.kind === kind).sort((x, y) => (y.end || y.ts) - (x.end || x.ts))[0]
-  const lf = last('feed')
-  const lastFed = a ? 'feeding now' : lf ? fmtAgo(now - (lf.end || lf.ts)) : '—'
+  const lf = entries.filter((e) => e.kind === 'feed').sort((x, y) => y.ts - x.ts)[0]
+  const lastFed = a ? 'feeding now' : lf ? fmtAgo(now - lf.ts) : '—'
   const ld = last('diaper')
   const ls = last('sleep')
   const awake = family.sleepStart ? 'sleeping now' : ls ? fmtAgo(now - ls.end).replace(' ago', '') : '—'

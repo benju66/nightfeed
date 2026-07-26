@@ -76,7 +76,9 @@ class ConfigActivity : Activity() {
                         save.isEnabled = true
                         Toast.makeText(this, "No family found with that code — check it and your connection", Toast.LENGTH_LONG).show()
                     } else {
+                        val oldCode = Prefs.code(this)
                         Prefs.setCode(this, code)
+                        Topics.switch(this, oldCode, code)
                         NightfeedWidget.schedule(this)
                         NightfeedWidget.refreshNow(this)
                         Toast.makeText(this, "Connected — add the widget to your home screen", Toast.LENGTH_LONG).show()

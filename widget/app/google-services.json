@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "787756951741",
+    "project_id": "nightfeed-al972",
+    "storage_bucket": "nightfeed-al972.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:787756951741:android:9a97a275917b90f8e9efd4",
+        "android_client_info": {
+          "package_name": "com.nightfeed.widget"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCNcinlhzsW4J8k5xchn6oJKg46U3xEDE0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

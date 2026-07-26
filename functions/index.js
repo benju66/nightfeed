@@ -4,6 +4,7 @@
 // the family doc so a due reminder notifies once, not every 5 minutes.
 const { onSchedule } = require('firebase-functions/v2/scheduler')
 const { onRequest } = require('firebase-functions/v2/https')
+const { onDocumentWritten } = require('firebase-functions/v2/firestore')
 const admin = require('firebase-admin')
 const webpush = require('web-push')
 
@@ -125,6 +126,28 @@ exports.testPush = onRequest({ region: 'us-central1', cors: true }, async (req, 
   }
   res.json({ sent })
 })
+
+// Whenever family data changes, ping the companion widget app (FCM topic per
+// family) so home-screen widgets refresh within seconds instead of on the
+// 15-minute poll. Data-only + high priority so it wakes the widget silently.
+const pingWidgets = async (code) => {
+  try {
+    await admin.messaging().send({
+      topic: 'family-' + code,
+      android: { priority: 'high' },
+      data: { kind: 'refresh' },
+    })
+  } catch (e) {
+    console.error('widget ping failed', code, e.message)
+  }
+}
+
+exports.familyChanged = onDocumentWritten({ document: 'families/{code}', region: 'us-central1' }, (event) =>
+  pingWidgets(event.params.code)
+)
+exports.entryChanged = onDocumentWritten({ document: 'families/{code}/entries/{id}', region: 'us-central1' }, (event) =>
+  pingWidgets(event.params.code)
+)
 
 // Manual trigger for testing: GET /reminderPushNow?key=<TEST_TRIGGER_KEY>.
 exports.reminderPushNow = onRequest({ region: 'us-central1' }, async (req, res) => {

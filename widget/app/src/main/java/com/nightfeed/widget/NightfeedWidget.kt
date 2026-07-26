@@ -32,6 +32,7 @@ class NightfeedWidget : AppWidgetProvider() {
 
     override fun onEnabled(context: Context) {
         schedule(context)
+        Topics.subscribe(context)
     }
 
     override fun onReceive(context: Context, intent: Intent) {

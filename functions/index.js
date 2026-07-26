@@ -137,6 +137,7 @@ const pingWidgets = async (code) => {
       android: { priority: 'high' },
       data: { kind: 'refresh' },
     })
+    console.log('widget ping sent', code)
   } catch (e) {
     console.error('widget ping failed', code, e.message)
   }

@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="12dp"
+    android:background="@drawable/widget_bg">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+        <TextView
+            android:id="@+id/tv_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Nightfeed"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:textColor="#9184D9" />
+        <TextView
+            android:id="@+id/tv_asof"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textSize="10sp"
+            android:textColor="#77777F" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:orientation="horizontal">
+        <TextView
+            android:id="@+id/tv_state"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="—"
+            android:textSize="16sp"
+            android:textColor="#E9E9ED" />
+        <Chronometer
+            android:id="@+id/chrono_state"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="#9184D9" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="3dp"
+        android:orientation="horizontal">
+        <TextView
+            android:id="@+id/tv_fed"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textSize="12sp"
+            android:textColor="#A3A3AB" />
+        <Chronometer
+            android:id="@+id/chrono_fed"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:textSize="12sp"
+            android:textColor="#C7C0F0" />
+        <TextView
+            android:id="@+id/tv_diaper"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:text=""
+            android:textSize="12sp"
+            android:textColor="#A3A3AB" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/tv_counts"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="3dp"
+        android:text=""
+        android:textSize="11sp"
+        android:textColor="#77777F" />
+
+    <TextView
+        android:id="@+id/tv_reminder"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:text=""
+        android:textSize="12sp"
+        android:textStyle="bold"
+        android:textColor="#9184D9"
+        android:visibility="gone" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+        <Button
+            android:id="@+id/btn_wet"
+            android:layout_width="0dp"
+            android:layout_height="34dp"
+            android:layout_weight="1"
+            android:text="Wet ✓"
+            android:textSize="12sp"
+            android:textColor="#E9E9ED"
+            android:background="@drawable/btn_bg" />
+        <Button
+            android:id="@+id/btn_left"
+            android:layout_width="0dp"
+            android:layout_height="34dp"
+            android:layout_weight="1"
+            android:layout_marginStart="8dp"
+            android:text="Feed L"
+            android:textSize="12sp"
+            android:textColor="#C7C0F0"
+            android:background="@drawable/btn_bg" />
+        <Button
+            android:id="@+id/btn_right"
+            android:layout_width="0dp"
+            android:layout_height="34dp"
+            android:layout_weight="1"
+            android:layout_marginStart="8dp"
+            android:text="Feed R"
+            android:textSize="12sp"
+            android:textColor="#C7C0F0"
+            android:background="@drawable/btn_bg" />
+    </LinearLayout>
+</LinearLayout>

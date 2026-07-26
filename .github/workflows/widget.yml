@@ -1,0 +1,46 @@
+name: widget
+
+on:
+  push:
+    paths:
+      - 'widget/**'
+      - '.github/workflows/widget.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build debug APK
+        run: gradle -p widget :app:assembleDebug
+
+      - name: Rename APK
+        run: cp widget/app/build/outputs/apk/debug/app-debug.apk nightfeed-widget.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nightfeed-widget
+          path: nightfeed-widget.apk
+
+      - name: Publish to widget-latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create widget-latest --title "Nightfeed Widget" \
+            --notes "Companion home-screen widget. Download on your phone, open the APK to install (allow installs from your browser when asked), open Nightfeed Widget once to enter your family code, then long-press your home screen > Widgets > Nightfeed Widget." \
+            2>/dev/null || true
+          gh release upload widget-latest nightfeed-widget.apk --clobber

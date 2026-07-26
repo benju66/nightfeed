@@ -1,0 +1,195 @@
+package com.nightfeed.widget
+
+import android.app.PendingIntent
+import android.appwidget.AppWidgetManager
+import android.appwidget.AppWidgetProvider
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.os.SystemClock
+import android.text.format.DateFormat
+import android.view.View
+import android.widget.RemoteViews
+import android.widget.Toast
+import androidx.work.Constraints
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.Worker
+import androidx.work.WorkerParameters
+import java.util.Date
+import java.util.concurrent.TimeUnit
+
+class NightfeedWidget : AppWidgetProvider() {
+
+    override fun onUpdate(context: Context, mgr: AppWidgetManager, ids: IntArray) {
+        schedule(context)
+        refreshNow(context)
+    }
+
+    override fun onEnabled(context: Context) {
+        schedule(context)
+    }
+
+    override fun onReceive(context: Context, intent: Intent) {
+        super.onReceive(context, intent)
+        when (intent.action) {
+            ACTION_WET -> {
+                Toast.makeText(context, "Logging wet diaper…", Toast.LENGTH_SHORT).show()
+                WorkManager.getInstance(context)
+                    .enqueue(OneTimeWorkRequestBuilder<WetWorker>().setConstraints(net()).build())
+            }
+            ACTION_REFRESH -> refreshNow(context)
+        }
+    }
+
+    companion object {
+        const val ACTION_WET = "com.nightfeed.widget.LOG_WET"
+        const val ACTION_REFRESH = "com.nightfeed.widget.REFRESH"
+        const val APP_URL = "https://nightfeed-al972.web.app"
+
+        fun net(): Constraints = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
+
+        fun schedule(context: Context) {
+            WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+                "nightfeed-widget-refresh",
+                ExistingPeriodicWorkPolicy.UPDATE,
+                PeriodicWorkRequestBuilder<RefreshWorker>(15, TimeUnit.MINUTES).setConstraints(net()).build()
+            )
+        }
+
+        fun refreshNow(context: Context) {
+            WorkManager.getInstance(context)
+                .enqueue(OneTimeWorkRequestBuilder<RefreshWorker>().setConstraints(net()).build())
+        }
+
+        fun render(context: Context, state: WidgetState?) {
+            val mgr = AppWidgetManager.getInstance(context)
+            val ids = mgr.getAppWidgetIds(ComponentName(context, NightfeedWidget::class.java))
+            if (ids.isEmpty()) return
+            mgr.updateAppWidget(ids, buildViews(context, state))
+        }
+
+        private fun pendingUrl(context: Context, url: String, req: Int): PendingIntent =
+            PendingIntent.getActivity(
+                context, req, Intent(Intent.ACTION_VIEW, Uri.parse(url)),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+        private fun pendingBroadcast(context: Context, action: String, req: Int): PendingIntent =
+            PendingIntent.getBroadcast(
+                context, req, Intent(context, NightfeedWidget::class.java).setAction(action),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+        // Chronometer counts from an elapsedRealtime base; anchor it to a wall-clock event.
+        private fun chronoBase(eventTs: Long): Long =
+            SystemClock.elapsedRealtime() - (System.currentTimeMillis() - eventTs)
+
+        fun buildViews(context: Context, state: WidgetState?): RemoteViews {
+            val v = RemoteViews(context.packageName, R.layout.widget)
+            val timeFmt = DateFormat.getTimeFormat(context)
+
+            v.setOnClickPendingIntent(R.id.root, pendingUrl(context, APP_URL, 0))
+            v.setOnClickPendingIntent(R.id.btn_left, pendingUrl(context, "$APP_URL/?action=feed-left", 1))
+            v.setOnClickPendingIntent(R.id.btn_right, pendingUrl(context, "$APP_URL/?action=feed-right", 2))
+            v.setOnClickPendingIntent(R.id.btn_wet, pendingBroadcast(context, ACTION_WET, 3))
+            v.setOnClickPendingIntent(R.id.tv_asof, pendingBroadcast(context, ACTION_REFRESH, 4))
+
+            if (Prefs.code(context) == null) {
+                v.setTextViewText(R.id.tv_state, "Tap to set up")
+                v.setViewVisibility(R.id.chrono_state, View.GONE)
+                v.setViewVisibility(R.id.chrono_fed, View.GONE)
+                val cfg = PendingIntent.getActivity(
+                    context, 5, Intent(context, ConfigActivity::class.java),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                v.setOnClickPendingIntent(R.id.root, cfg)
+                return v
+            }
+            if (state == null) {
+                v.setTextViewText(R.id.tv_asof, "offline · tap to retry")
+                return v
+            }
+
+            v.setTextViewText(R.id.tv_title, state.babyName.ifBlank { "Nightfeed" })
+            v.setTextViewText(R.id.tv_asof, "as of " + timeFmt.format(Date(state.fetchedAt)) + " ↻")
+
+            val af = state.activeFeed
+            when {
+                af != null && af.paused -> {
+                    v.setTextViewText(R.id.tv_state, "Feeding · paused")
+                    v.setViewVisibility(R.id.chrono_state, View.GONE)
+                }
+                af != null -> {
+                    v.setTextViewText(R.id.tv_state, if (af.type == "bottle") "Bottle feeding" else "Feeding · " + af.type)
+                    v.setViewVisibility(R.id.chrono_state, View.VISIBLE)
+                    v.setChronometer(R.id.chrono_state, chronoBase(af.feedStart), null, true)
+                }
+                state.sleepStart != null -> {
+                    v.setTextViewText(R.id.tv_state, "Sleeping")
+                    v.setViewVisibility(R.id.chrono_state, View.VISIBLE)
+                    v.setChronometer(R.id.chrono_state, chronoBase(state.sleepStart), null, true)
+                }
+                state.lastSleepEnd != null -> {
+                    v.setTextViewText(R.id.tv_state, "Awake")
+                    v.setViewVisibility(R.id.chrono_state, View.VISIBLE)
+                    v.setChronometer(R.id.chrono_state, chronoBase(state.lastSleepEnd), null, true)
+                }
+                else -> {
+                    v.setTextViewText(R.id.tv_state, "Awake")
+                    v.setViewVisibility(R.id.chrono_state, View.GONE)
+                }
+            }
+
+            if (state.lastFeedStart != null) {
+                v.setTextViewText(R.id.tv_fed, "Fed " + timeFmt.format(Date(state.lastFeedStart)) + " ·")
+                v.setViewVisibility(R.id.chrono_fed, View.VISIBLE)
+                v.setChronometer(R.id.chrono_fed, chronoBase(state.lastFeedStart), null, true)
+            } else {
+                v.setTextViewText(R.id.tv_fed, "No feeds yet")
+                v.setViewVisibility(R.id.chrono_fed, View.GONE)
+            }
+            v.setTextViewText(
+                R.id.tv_diaper,
+                if (state.lastDiaperTs != null) "Diaper " + timeFmt.format(Date(state.lastDiaperTs)) else "No diapers yet"
+            )
+
+            v.setTextViewText(R.id.tv_counts, "Today: " + state.todayFeeds + " feeds · " + state.todayDiapers + " diapers")
+
+            if (state.dueReminder != null) {
+                v.setViewVisibility(R.id.tv_reminder, View.VISIBLE)
+                v.setTextViewText(R.id.tv_reminder, "⏰ " + state.dueReminder)
+            } else {
+                v.setViewVisibility(R.id.tv_reminder, View.GONE)
+            }
+            return v
+        }
+    }
+}
+
+class RefreshWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) {
+    override fun doWork(): Result {
+        val code = Prefs.code(applicationContext) ?: run {
+            NightfeedWidget.render(applicationContext, null)
+            return Result.success()
+        }
+        val family = FirestoreClient.getFamily(code) ?: return Result.retry()
+        val entries = FirestoreClient.recentEntries(code)
+        NightfeedWidget.render(applicationContext, StateBuilder.build(family, entries))
+        return Result.success()
+    }
+}
+
+class WetWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) {
+    override fun doWork(): Result {
+        val code = Prefs.code(applicationContext) ?: return Result.success()
+        FirestoreClient.logWetDiaper(code)
+        val family = FirestoreClient.getFamily(code) ?: return Result.success()
+        NightfeedWidget.render(applicationContext, StateBuilder.build(family, FirestoreClient.recentEntries(code)))
+        return Result.success()
+    }
+}

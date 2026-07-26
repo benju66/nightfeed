@@ -1,0 +1,14 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Tradeoff (deliberate, documented in the handoff spec): the random
+    // 8-char family code is the only secret — anyone holding the code can
+    // read/write that family's data. Acceptable for a two-parent household
+    // app with unguessable codes (31^8 combinations). To harden later:
+    // enable Anonymous Auth and add `request.auth != null` here, or keep a
+    // member-UID list on the family doc.
+    match /families/{family}/{document=**} {
+      allow read, write: if true;
+    }
+  }
+}

@@ -1,0 +1,10 @@
+node_modules/
+dist/
+dev-dist/
+.firebase/
+*.local
+firebase-debug.log
+firestore-debug.log
+# Holds the web-push VAPID private key — never commit. A fresh clone needs
+# this file recreated before `firebase deploy --only functions` (see CLAUDE.md).
+functions/.env

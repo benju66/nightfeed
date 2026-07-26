@@ -56,6 +56,29 @@ class ConfigActivity : Activity() {
             setTextColor(Color.parseColor("#E9E9ED"))
         }
         root.addView(save)
+
+        // Sideloaded apps get aggressive battery limits, which delays push
+        // refreshes; this asks Android to exempt the widget.
+        val battery = Button(this).apply {
+            text = "Improve reliability (allow background)"
+            setTextColor(Color.parseColor("#C7C0F0"))
+        }
+        root.addView(battery)
+        battery.setOnClickListener {
+            try {
+                val pm = getSystemService(POWER_SERVICE) as android.os.PowerManager
+                if (pm.isIgnoringBatteryOptimizations(packageName)) {
+                    Toast.makeText(this, "Already allowed — you're set", Toast.LENGTH_SHORT).show()
+                } else {
+                    startActivity(
+                        Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+                            .setData(android.net.Uri.parse("package:$packageName"))
+                    )
+                }
+            } catch (e: Exception) {
+                Toast.makeText(this, "Open Settings → Apps → Nightfeed Widget → Battery → Unrestricted", Toast.LENGTH_LONG).show()
+            }
+        }
         setContentView(root)
 
         val widgetId = intent?.extras?.getInt(

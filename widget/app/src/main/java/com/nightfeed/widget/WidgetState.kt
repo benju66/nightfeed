@@ -18,7 +18,45 @@ data class WidgetState(
     val dueReminder: String?,
     val feedAlertHours: Double?,
     val fetchedAt: Long,
-)
+) {
+    fun toJson(): String {
+        val o = JSONObject()
+        o.put("babyName", babyName)
+        if (activeFeed != null) o.put("af", JSONObject().put("type", activeFeed.type).put("feedStart", activeFeed.feedStart).put("paused", activeFeed.paused))
+        if (sleepStart != null) o.put("sleepStart", sleepStart)
+        if (lastFeedStart != null) o.put("lastFeedStart", lastFeedStart)
+        if (lastDiaperTs != null) o.put("lastDiaperTs", lastDiaperTs)
+        if (lastSleepEnd != null) o.put("lastSleepEnd", lastSleepEnd)
+        o.put("todayFeeds", todayFeeds)
+        o.put("todayDiapers", todayDiapers)
+        if (dueReminder != null) o.put("dueReminder", dueReminder)
+        if (feedAlertHours != null) o.put("feedAlertHours", feedAlertHours)
+        o.put("fetchedAt", fetchedAt)
+        return o.toString()
+    }
+
+    companion object {
+        fun fromJson(s: String): WidgetState? = try {
+            val o = JSONObject(s)
+            val af = o.optJSONObject("af")
+            WidgetState(
+                babyName = o.optString("babyName", ""),
+                activeFeed = if (af != null) ActiveFeed(af.optString("type", "left"), af.optLong("feedStart"), af.optBoolean("paused")) else null,
+                sleepStart = if (o.has("sleepStart")) o.optLong("sleepStart") else null,
+                lastFeedStart = if (o.has("lastFeedStart")) o.optLong("lastFeedStart") else null,
+                lastDiaperTs = if (o.has("lastDiaperTs")) o.optLong("lastDiaperTs") else null,
+                lastSleepEnd = if (o.has("lastSleepEnd")) o.optLong("lastSleepEnd") else null,
+                todayFeeds = o.optInt("todayFeeds"),
+                todayDiapers = o.optInt("todayDiapers"),
+                dueReminder = if (o.has("dueReminder")) o.optString("dueReminder") else null,
+                feedAlertHours = if (o.has("feedAlertHours")) o.optDouble("feedAlertHours") else null,
+                fetchedAt = o.optLong("fetchedAt"),
+            )
+        } catch (e: Exception) {
+            null
+        }
+    }
+}
 
 // Parses Firestore REST JSON into the little world the widget renders.
 object StateBuilder {

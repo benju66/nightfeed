@@ -52,6 +52,12 @@ class NightfeedWidget : AppWidgetProvider() {
                     .enqueue(OneTimeWorkRequestBuilder<SleepWorker>().setConstraints(net()).build())
             }
             ACTION_REFRESH -> refreshNow(context)
+            // Re-render from cached data so relative times stay fresh; no
+            // network involved. Re-arms itself.
+            ACTION_TICK -> {
+                renderCached(context)
+                armTick(context)
+            }
             // APK was just updated: re-assert the push subscription and schedule.
             Intent.ACTION_MY_PACKAGE_REPLACED -> {
                 schedule(context)
@@ -65,6 +71,7 @@ class NightfeedWidget : AppWidgetProvider() {
         const val ACTION_WET = "com.nightfeed.widget.LOG_WET"
         const val ACTION_SLEEP = "com.nightfeed.widget.TOGGLE_SLEEP"
         const val ACTION_REFRESH = "com.nightfeed.widget.REFRESH"
+        const val ACTION_TICK = "com.nightfeed.widget.TICK"
         const val APP_URL = "https://nightfeed-al972.web.app"
 
         fun net(): Constraints = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
@@ -91,6 +98,26 @@ class NightfeedWidget : AppWidgetProvider() {
                 ExistingPeriodicWorkPolicy.UPDATE,
                 PeriodicWorkRequestBuilder<RefreshWorker>(15, TimeUnit.MINUTES).setConstraints(net()).build()
             )
+            armTick(context)
+        }
+
+        // Non-wakeup alarm chain (~5 min): fires while the phone is awake and
+        // queues through Doze, delivering right when the screen comes back on —
+        // exactly when the widget is actually being looked at.
+        fun armTick(context: Context) {
+            try {
+                val am = context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+                val pi = pendingBroadcast(context, ACTION_TICK, 7)
+                am.setAndAllowWhileIdle(android.app.AlarmManager.RTC, System.currentTimeMillis() + 5 * 60000, pi)
+            } catch (e: Exception) {
+                /* alarms unavailable — poll still covers it */
+            }
+        }
+
+        fun renderCached(context: Context) {
+            val cached = Prefs.state(context) ?: return
+            val state = WidgetState.fromJson(cached) ?: return
+            render(context, state)
         }
 
         fun refreshNow(context: Context) {
@@ -225,9 +252,16 @@ class RefreshWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params
             NightfeedWidget.render(applicationContext, null)
             return Result.success()
         }
-        val family = FirestoreClient.getFamily(code) ?: return Result.retry()
+        val family = FirestoreClient.getFamily(code) ?: run {
+            // Offline: keep the widget honest by re-rendering cached data with
+            // current relative times.
+            NightfeedWidget.renderCached(applicationContext)
+            return Result.retry()
+        }
         val entries = FirestoreClient.recentEntries(code)
-        NightfeedWidget.render(applicationContext, StateBuilder.build(family, entries))
+        val state = StateBuilder.build(family, entries)
+        Prefs.setState(applicationContext, state.toJson())
+        NightfeedWidget.render(applicationContext, state)
         return Result.success()
     }
 }
@@ -241,7 +275,9 @@ class SleepWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) 
         if (state.sleepStart != null) FirestoreClient.endSleep(code, state.sleepStart, now)
         else FirestoreClient.startSleep(code, now)
         val fresh = FirestoreClient.getFamily(code) ?: return Result.success()
-        NightfeedWidget.render(applicationContext, StateBuilder.build(fresh, FirestoreClient.recentEntries(code)))
+        val newState = StateBuilder.build(fresh, FirestoreClient.recentEntries(code))
+        Prefs.setState(applicationContext, newState.toJson())
+        NightfeedWidget.render(applicationContext, newState)
         return Result.success()
     }
 }
@@ -251,7 +287,9 @@ class WetWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) {
         val code = Prefs.code(applicationContext) ?: return Result.success()
         FirestoreClient.logWetDiaper(code)
         val family = FirestoreClient.getFamily(code) ?: return Result.success()
-        NightfeedWidget.render(applicationContext, StateBuilder.build(family, FirestoreClient.recentEntries(code)))
+        val state = StateBuilder.build(family, FirestoreClient.recentEntries(code))
+        Prefs.setState(applicationContext, state.toJson())
+        NightfeedWidget.render(applicationContext, state)
         return Result.success()
     }
 }

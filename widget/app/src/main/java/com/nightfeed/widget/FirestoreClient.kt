@@ -11,6 +11,13 @@ object Prefs {
     fun setCode(c: Context, v: String) {
         c.getSharedPreferences("nightfeed", 0).edit().putString("code", v).apply()
     }
+
+    // Last successfully fetched widget state, so ticks can re-render fresh
+    // relative times without touching the network.
+    fun state(c: Context): String? = c.getSharedPreferences("nightfeed", 0).getString("state", null)
+    fun setState(c: Context, v: String) {
+        c.getSharedPreferences("nightfeed", 0).edit().putString("state", v).apply()
+    }
 }
 
 // Talks to the same Firestore the PWA uses, via plain REST. The family code is

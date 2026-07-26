@@ -16,6 +16,7 @@ data class WidgetState(
     val todayFeeds: Int,
     val todayDiapers: Int,
     val dueReminder: String?,
+    val feedAlertHours: Double?,
     val fetchedAt: Long,
 )
 
@@ -106,6 +107,9 @@ object StateBuilder {
             todayFeeds = todayFeeds,
             todayDiapers = todayDiapers,
             dueReminder = computeDueReminder(f, vitdDoneToday, lastFeedStart, activeFeed != null, now),
+            feedAlertHours = map(f.optJSONObject("feedAlert"))?.let { fa ->
+                if (bool(fa.optJSONObject("enabled"))) numD(fa.optJSONObject("hours")) ?: 3.0 else null
+            },
             fetchedAt = now,
         )
     }

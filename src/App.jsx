@@ -4,7 +4,7 @@ import {
   watchFamily, watchEntries, updateFamily, addEntry, overwriteEntry, deleteEntry, clearAllData,
 } from './data.js'
 import { ageLabel, fmtMins, weightUnitFor, heightUnitFor, tempUnitFor } from './lib/format.js'
-import { statVals } from './lib/derive.js'
+import { statVals, statDetail } from './lib/derive.js'
 import { reminderStates } from './lib/reminders.js'
 import TrackTab from './components/TrackTab.jsx'
 import HealthTab from './components/HealthTab.jsx'
@@ -109,6 +109,8 @@ function Main({ code, onSwitchFamily }) {
   const [now, setNow] = useState(Date.now())
   const [tab, setTab] = useState('track')
   const [scope, setScope] = useState('today')
+  const [detailKey, setDetailKey] = useState(null)
+  const touchRef = useRef(null) // swipe tracking — must sit above the loading returns
   const [filter, setFilter] = useState('all')
   const [showSettings, setShowSettings] = useState(false)
   // In-progress inputs stay local to this phone until an entry is logged.
@@ -397,6 +399,22 @@ function Main({ code, onSwitchFamily }) {
   }
 
 
+  // Swipe left/right on the main area to move between tabs.
+  const TAB_ORDER = ['track', 'health', 'history']
+  const onTouchStart = (e) => {
+    touchRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+  }
+  const onTouchEnd = (e) => {
+    const t = touchRef.current
+    touchRef.current = null
+    if (!t) return
+    const dx = e.changedTouches[0].clientX - t.x
+    const dy = e.changedTouches[0].clientY - t.y
+    if (Math.abs(dx) < 70 || Math.abs(dy) > 60) return
+    const idx = TAB_ORDER.indexOf(tab) + (dx < 0 ? 1 : -1)
+    if (idx >= 0 && idx < TAB_ORDER.length) setTab(TAB_ORDER[idx])
+  }
+
   const stats = statVals(entries, scope, u, now, family.sleepStart)
   const headerSub = [
     ageLabel(family.birth, now),
@@ -432,15 +450,20 @@ function Main({ code, onSwitchFamily }) {
           ))}
         </div>
         <div className="stat-strip">
-          {[[stats.feeds, 'Feeds'], [stats.bottle, 'Bottle'], [stats.pumped, 'Pumped'], [stats.diapers, 'Diapers'], [stats.sleep, 'Sleep']].map(([v, label]) => (
-            <div key={label} className="stat-tile">
+          {[[stats.feeds, 'Feeds', 'feeds'], [stats.bottle, 'Bottle', 'bottle'], [stats.pumped, 'Pumped', 'pumped'], [stats.diapers, 'Diapers', 'diapers'], [stats.sleep, 'Sleep', 'sleep']].map(([v, label, key]) => (
+            <div
+              key={label}
+              className={'stat-tile stat-tile-tappable' + (detailKey === key ? ' selected' : '')}
+              onClick={() => setDetailKey(detailKey === key ? null : key)}
+            >
               <span className="stat-value">{v}</span>
               <span className="tile-label">{label}</span>
             </div>
           ))}
         </div>
+        {detailKey && <div className="stat-detail">{statDetail(detailKey, entries, scope, u, now)}</div>}
 
-        <main className="app-main">
+        <main className="app-main" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
           {tab === 'track' ? (
             <TrackTab
               family={family} entries={entries} now={now} u={u} timeFormat={timeFormat}

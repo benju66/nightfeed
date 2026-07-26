@@ -104,6 +104,54 @@ export function trendRows(entries, u, now) {
   ]
 }
 
+// Breakdown line shown when a stat tile is tapped. Scope-aware: today and
+// all-time show totals, 7-day avg shows per-day averages over active days.
+export function statDetail(key, entries, scope, u, now) {
+  const todayK = dayKey(now)
+  let es
+  let denom = 1
+  let per = ''
+  if (scope === 'today') es = entries.filter((e) => dayKey(e.ts) === todayK)
+  else if (scope === 'all') es = entries
+  else {
+    const keys = trendKeys(now)
+    es = entries.filter((e) => keys.includes(dayKey(e.ts)))
+    denom = Math.max(1, new Set(es.map((e) => dayKey(e.ts))).size)
+    per = '/day'
+  }
+  const n = (x) => (denom === 1 ? String(x) : (x / denom).toFixed(1)) + per
+  const vol = (list) => list.filter((e) => e.amount).reduce((s, e) => s + toUnits(e.amount, e.unit, u), 0)
+
+  if (key === 'diapers') {
+    const d = es.filter((e) => e.kind === 'diaper')
+    const c = (t) => d.filter((e) => e.type === t).length
+    return n(c('wet')) + ' wet · ' + n(c('solid')) + ' solid · ' + n(c('both')) + ' wet+solid'
+  }
+  if (key === 'feeds') {
+    const f = es.filter((e) => e.kind === 'feed')
+    const bottle = f.filter((e) => e.type === 'bottle')
+    const secs = f.reduce((s, e) => s + (e.secs || 0), 0)
+    return n(f.length - bottle.length) + ' breast · ' + n(bottle.length) + ' bottle · ' + fmtMins(secs / denom) + per + ' feeding'
+  }
+  if (key === 'bottle') {
+    const b = es.filter((e) => e.kind === 'feed' && e.type === 'bottle' && e.amount)
+    if (!b.length) return 'No bottle volumes logged'
+    return n(b.length) + ' with volume · avg ' + fmtVol(vol(b) / b.length, u) + ' each'
+  }
+  if (key === 'pumped') {
+    const p = es.filter((e) => e.kind === 'pump')
+    const withVol = p.filter((e) => e.amount)
+    return n(p.length) + ' sessions' + (withVol.length ? ' · avg ' + fmtVol(vol(withVol) / withVol.length, u) + ' each' : '')
+  }
+  if (key === 'sleep') {
+    const s = es.filter((e) => e.kind === 'sleep')
+    if (!s.length) return 'No sleep logged'
+    const longest = Math.max(...s.map((e) => e.secs || 0))
+    return n(s.length) + ' naps · longest ' + fmtMins(longest)
+  }
+  return ''
+}
+
 export function statVals(entries, scope, u, now, sleepStart) {
   const todayK = dayKey(now)
   const today = entries.filter((e) => dayKey(e.ts) === todayK)

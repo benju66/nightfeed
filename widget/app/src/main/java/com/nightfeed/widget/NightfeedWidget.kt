@@ -44,6 +44,11 @@ class NightfeedWidget : AppWidgetProvider() {
                 WorkManager.getInstance(context)
                     .enqueue(OneTimeWorkRequestBuilder<WetWorker>().setConstraints(net()).build())
             }
+            ACTION_SLEEP -> {
+                Toast.makeText(context, "Updating sleep…", Toast.LENGTH_SHORT).show()
+                WorkManager.getInstance(context)
+                    .enqueue(OneTimeWorkRequestBuilder<SleepWorker>().setConstraints(net()).build())
+            }
             ACTION_REFRESH -> refreshNow(context)
             // APK was just updated: re-assert the push subscription and schedule.
             Intent.ACTION_MY_PACKAGE_REPLACED -> {
@@ -56,6 +61,7 @@ class NightfeedWidget : AppWidgetProvider() {
 
     companion object {
         const val ACTION_WET = "com.nightfeed.widget.LOG_WET"
+        const val ACTION_SLEEP = "com.nightfeed.widget.TOGGLE_SLEEP"
         const val ACTION_REFRESH = "com.nightfeed.widget.REFRESH"
         const val APP_URL = "https://nightfeed-al972.web.app"
 
@@ -114,6 +120,7 @@ class NightfeedWidget : AppWidgetProvider() {
             v.setOnClickPendingIntent(R.id.btn_right, pendingUrl(context, "$APP_URL/?action=feed-right", 2))
             v.setOnClickPendingIntent(R.id.btn_wet, pendingBroadcast(context, ACTION_WET, 3))
             v.setOnClickPendingIntent(R.id.tv_asof, pendingBroadcast(context, ACTION_REFRESH, 4))
+            v.setOnClickPendingIntent(R.id.btn_sleep, pendingBroadcast(context, ACTION_SLEEP, 6))
 
             if (Prefs.code(context) == null) {
                 v.setTextViewText(R.id.tv_state, "Tap to set up")
@@ -172,7 +179,14 @@ class NightfeedWidget : AppWidgetProvider() {
                 if (state.lastDiaperTs != null) "Diaper " + timeFmt.format(Date(state.lastDiaperTs)) else "No diapers yet"
             )
 
-            v.setTextViewText(R.id.tv_counts, "Today: " + state.todayFeeds + " feeds · " + state.todayDiapers + " diapers")
+            var counts = "Today: " + state.todayFeeds + " feeds · " + state.todayDiapers + " diapers"
+            if (state.feedAlertHours != null && state.lastFeedStart != null && state.activeFeed == null) {
+                val nextAt = state.lastFeedStart + (state.feedAlertHours * 3600000).toLong()
+                if (nextAt > System.currentTimeMillis()) counts += " · next feed ~" + timeFmt.format(Date(nextAt))
+            }
+            v.setTextViewText(R.id.tv_counts, counts)
+
+            v.setTextViewText(R.id.btn_sleep, if (state.sleepStart != null) "Wake" else "Sleep")
 
             if (state.dueReminder != null) {
                 v.setViewVisibility(R.id.tv_reminder, View.VISIBLE)
@@ -195,6 +209,20 @@ class RefreshWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params
         val family = FirestoreClient.getFamily(code) ?: return Result.retry()
         val entries = FirestoreClient.recentEntries(code)
         NightfeedWidget.render(applicationContext, StateBuilder.build(family, entries))
+        return Result.success()
+    }
+}
+
+class SleepWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) {
+    override fun doWork(): Result {
+        val code = Prefs.code(applicationContext) ?: return Result.success()
+        val family = FirestoreClient.getFamily(code) ?: return Result.success()
+        val state = StateBuilder.build(family, null)
+        val now = System.currentTimeMillis()
+        if (state.sleepStart != null) FirestoreClient.endSleep(code, state.sleepStart, now)
+        else FirestoreClient.startSleep(code, now)
+        val fresh = FirestoreClient.getFamily(code) ?: return Result.success()
+        NightfeedWidget.render(applicationContext, StateBuilder.build(fresh, FirestoreClient.recentEntries(code)))
         return Result.success()
     }
 }

@@ -22,7 +22,13 @@ object FirestoreClient {
     private fun request(method: String, url: String, body: String?): String? {
         return try {
             val conn = URL(url).openConnection() as HttpURLConnection
-            conn.requestMethod = method
+            // HttpURLConnection can't speak PATCH; Google APIs accept the override header.
+            if (method == "PATCH") {
+                conn.requestMethod = "POST"
+                conn.setRequestProperty("X-HTTP-Method-Override", "PATCH")
+            } else {
+                conn.requestMethod = method
+            }
             conn.connectTimeout = 10000
             conn.readTimeout = 10000
             if (body != null) {
@@ -52,6 +58,24 @@ object FirestoreClient {
         ).toString()
         val txt = request("POST", "$BASE/families/$code:runQuery?key=$KEY", body) ?: return null
         return try { JSONArray(txt) } catch (e: Exception) { null }
+    }
+
+    fun startSleep(code: String, ts: Long): Boolean {
+        val body = JSONObject().put("fields", JSONObject()
+            .put("sleepStart", JSONObject().put("integerValue", ts.toString()))).toString()
+        return request("PATCH", "$BASE/families/$code?updateMask.fieldPaths=sleepStart&key=$KEY", body) != null
+    }
+
+    fun endSleep(code: String, sleepStart: Long, end: Long): Boolean {
+        val entry = JSONObject().put("fields", JSONObject()
+            .put("kind", JSONObject().put("stringValue", "sleep"))
+            .put("ts", JSONObject().put("integerValue", sleepStart.toString()))
+            .put("end", JSONObject().put("integerValue", end.toString()))
+            .put("secs", JSONObject().put("integerValue", ((end - sleepStart) / 1000).toString()))).toString()
+        if (request("POST", "$BASE/families/$code/entries?key=$KEY", entry) == null) return false
+        val clear = JSONObject().put("fields", JSONObject()
+            .put("sleepStart", JSONObject().put("nullValue", JSONObject.NULL))).toString()
+        return request("PATCH", "$BASE/families/$code?updateMask.fieldPaths=sleepStart&key=$KEY", clear) != null
     }
 
     fun logWetDiaper(code: String): Boolean {

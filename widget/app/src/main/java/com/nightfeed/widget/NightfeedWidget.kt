@@ -40,11 +40,13 @@ class NightfeedWidget : AppWidgetProvider() {
         super.onReceive(context, intent)
         when (intent.action) {
             ACTION_WET -> {
+                buzz(context)
                 Toast.makeText(context, "Logging wet diaper…", Toast.LENGTH_SHORT).show()
                 WorkManager.getInstance(context)
                     .enqueue(OneTimeWorkRequestBuilder<WetWorker>().setConstraints(net()).build())
             }
             ACTION_SLEEP -> {
+                buzz(context)
                 Toast.makeText(context, "Updating sleep…", Toast.LENGTH_SHORT).show()
                 WorkManager.getInstance(context)
                     .enqueue(OneTimeWorkRequestBuilder<SleepWorker>().setConstraints(net()).build())
@@ -66,6 +68,22 @@ class NightfeedWidget : AppWidgetProvider() {
         const val APP_URL = "https://nightfeed-al972.web.app"
 
         fun net(): Constraints = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
+
+        // Same short confirmation buzz the app gives — matters most here, where
+        // the action runs in the background with no screen change.
+        private fun buzz(context: Context) {
+            try {
+                val vib = if (android.os.Build.VERSION.SDK_INT >= 31) {
+                    (context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as android.os.VibratorManager).defaultVibrator
+                } else {
+                    @Suppress("DEPRECATION")
+                    context.getSystemService(Context.VIBRATOR_SERVICE) as android.os.Vibrator
+                }
+                vib.vibrate(android.os.VibrationEffect.createOneShot(25, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+            } catch (e: Exception) {
+                /* no vibrator */
+            }
+        }
 
         fun schedule(context: Context) {
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(

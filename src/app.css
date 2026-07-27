@@ -200,6 +200,12 @@ input[type='number']::-webkit-inner-spin-button { -webkit-appearance: none; marg
 .feed-finish-hint { font-size: 13px; color: var(--color-accent-300); margin-top: 14px; }
 .feed-sides { display: flex; gap: 10px; }
 .feed-sides .btn { flex: 1; }
+.feed-start-row { display: flex; align-items: center; gap: 8px; }
+.feed-start-label {
+  flex: 1; font-size: 13.5px; font-variant-numeric: tabular-nums;
+  color: color-mix(in srgb, var(--color-text) 72%, transparent);
+}
+.feed-start-nudge { min-height: 40px; padding: 4px 12px; font-size: 13px; font-variant-numeric: tabular-nums; }
 
 /* Undo snackbar */
 .snackbar {

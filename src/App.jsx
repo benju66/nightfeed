@@ -322,6 +322,34 @@ function Main({ code, onSwitchFamily }) {
     setFeedFocus(true)
   }
 
+  // Nudge the running feed's start time ("I actually started 10 minutes
+  // ago") without ending the session. Negative = earlier: extends the
+  // logged start AND credits the time to the current side/bottle. Positive =
+  // later: clamped so elapsed time never goes negative.
+  const adjustFeedStart = (deltaMins) => {
+    const a = family.activeFeed
+    if (!a) return
+    buzz()
+    const now = Date.now()
+    const sideKey = a.type === 'bottle' ? 'doneSecs' : a.type === 'left' ? 'leftSecs' : 'rightSecs'
+    if (deltaMins < 0) {
+      const d = -deltaMins * 60000
+      const upd = { ...a, feedStart: (a.feedStart || a.start) - d }
+      if (a.paused) upd[sideKey] = (a[sideKey] || 0) + d / 1000
+      else upd.start = a.start - d
+      updateFamily(code, { activeFeed: upd })
+    } else {
+      const want = deltaMins * 60000
+      const available = a.paused ? (a[sideKey] || 0) * 1000 : now - a.start
+      const d = Math.min(want, Math.max(0, available))
+      if (d <= 0) return
+      const upd = { ...a, feedStart: (a.feedStart || a.start) + d }
+      if (a.paused) upd[sideKey] = Math.max(0, (a[sideKey] || 0) - d / 1000)
+      else upd.start = a.start + d
+      updateFamily(code, { activeFeed: upd })
+    }
+  }
+
   // Pause (burping, re-latching) freezes the timers without ending the
   // session; the state lives on the family doc so both phones agree.
   const togglePauseFeed = () => {
@@ -562,11 +590,13 @@ function Main({ code, onSwitchFamily }) {
             family={family}
             now={now}
             u={u}
+            timeFormat={timeFormat}
             amount={amount}
             setAmount={setAmount}
             onFinish={finishBreastFeed}
             onSwitch={(s) => tapSide(s)}
             onTogglePause={togglePauseFeed}
+            onAdjustStart={adjustFeedStart}
             onMinimize={() => setFeedFocus(false)}
           />
         )}

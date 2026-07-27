@@ -1,10 +1,10 @@
 import { useEffect } from 'react'
-import { fmtDur } from '../lib/format.js'
+import { fmtDur, fmtClock } from '../lib/format.js'
 
 // Full-screen breast-feeding mode: the timer zone is one giant finish target,
 // the side tiles keep the dashboard's left/right muscle memory for switching,
 // and the chevron minimizes without stopping.
-export default function FeedFocus({ family, now, u, amount, setAmount, onFinish, onSwitch, onTogglePause, onMinimize }) {
+export default function FeedFocus({ family, now, u, timeFormat, amount, setAmount, onFinish, onSwitch, onTogglePause, onAdjustStart, onMinimize }) {
   // Keep the screen awake for the whole session; the OS releases wake locks
   // when the page hides, so re-acquire on return.
   useEffect(() => {
@@ -87,6 +87,12 @@ export default function FeedFocus({ family, now, u, amount, setAmount, onFinish,
         )}
         <span className="feed-finish-hint">Tap anywhere here to finish{isBottle && amount ? ' · logs ' + amount + ' ' + u : ''}</span>
       </button>
+      <div className="feed-start-row">
+        <span className="feed-start-label">Started {fmtClock(a.feedStart || a.start, timeFormat)}</span>
+        <button className="btn btn-secondary feed-start-nudge" onClick={() => onAdjustStart(-15)}>−15m</button>
+        <button className="btn btn-secondary feed-start-nudge" onClick={() => onAdjustStart(-5)}>−5m</button>
+        <button className="btn btn-secondary feed-start-nudge" onClick={() => onAdjustStart(5)}>+5m</button>
+      </div>
       {isBottle && (
         <div className="amount-row">
           <input

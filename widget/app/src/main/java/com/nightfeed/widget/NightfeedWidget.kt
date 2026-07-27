@@ -185,32 +185,47 @@ class NightfeedWidget : AppWidgetProvider() {
             v.setTextViewText(R.id.tv_title, state.babyName.ifBlank { "Nightfeed" })
             v.setTextViewText(R.id.tv_asof, "as of " + timeFmt.format(Date(state.fetchedAt)) + " ↻")
 
+            // Feeding-first layout (2026-07-26): the state row only appears
+            // during an active feed; otherwise the feeding block below is the
+            // hero. Sleep/awake display intentionally disabled as too much for
+            // the glance surface — restore by uncommenting the block below.
             val af = state.activeFeed
             when {
                 af != null && af.paused -> {
+                    v.setViewVisibility(R.id.row_state, View.VISIBLE)
                     v.setTextViewText(R.id.tv_state, "Feeding · paused")
                     v.setViewVisibility(R.id.chrono_state, View.GONE)
                 }
                 af != null -> {
+                    v.setViewVisibility(R.id.row_state, View.VISIBLE)
                     v.setTextViewText(R.id.tv_state, if (af.type == "bottle") "Bottle feeding" else "Feeding · " + af.type)
                     v.setViewVisibility(R.id.chrono_state, View.VISIBLE)
                     v.setChronometer(R.id.chrono_state, chronoBase(af.feedStart), null, true)
                 }
+                /*
                 state.sleepStart != null -> {
+                    v.setViewVisibility(R.id.row_state, View.VISIBLE)
                     v.setTextViewText(R.id.tv_state, "Sleeping")
                     v.setViewVisibility(R.id.chrono_state, View.VISIBLE)
                     v.setChronometer(R.id.chrono_state, chronoBase(state.sleepStart), null, true)
                 }
                 state.lastSleepEnd != null -> {
+                    v.setViewVisibility(R.id.row_state, View.VISIBLE)
                     v.setTextViewText(R.id.tv_state, "Awake")
                     v.setViewVisibility(R.id.chrono_state, View.VISIBLE)
                     v.setChronometer(R.id.chrono_state, chronoBase(state.lastSleepEnd), null, true)
                 }
+                */
                 else -> {
-                    v.setTextViewText(R.id.tv_state, "Awake")
+                    v.setViewVisibility(R.id.row_state, View.GONE)
                     v.setViewVisibility(R.id.chrono_state, View.GONE)
                 }
             }
+
+            // With no state row, the feeding block carries the widget.
+            val feeding = af != null
+            v.setTextViewTextSize(R.id.tv_fed, android.util.TypedValue.COMPLEX_UNIT_SP, if (feeding) 14f else 20f)
+            v.setTextViewTextSize(R.id.tv_next, android.util.TypedValue.COMPLEX_UNIT_SP, if (feeding) 14f else 17f)
 
             // Feeding block: last fed + the next-feed forecast right beneath it.
             if (state.lastFeedStart != null) {

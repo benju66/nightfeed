@@ -247,7 +247,15 @@ class NightfeedWidget : AppWidgetProvider() {
             val diaperTxt = if (state.lastDiaperTs != null) "Diaper " + timeFmt.format(Date(state.lastDiaperTs)) else "No diapers yet"
             v.setTextViewText(R.id.tv_counts, diaperTxt + " · Today: " + state.todayFeeds + " feeds · " + state.todayDiapers + " diapers")
 
-            v.setTextViewText(R.id.btn_sleep, if (state.sleepStart != null) "Wake" else "Sleep")
+            // Sleep button hidden with the sleep display (2026-07-26); label
+            // logic kept for easy restore:
+            // v.setTextViewText(R.id.btn_sleep, if (state.sleepStart != null) "Wake" else "Sleep")
+
+            // Mark the suggested starting side so the choice is pre-made.
+            v.setTextViewText(R.id.btn_left, if (state.suggestedSide == "left") "Feed L ★" else "Feed L")
+            v.setTextViewText(R.id.btn_right, if (state.suggestedSide == "right") "Feed R ★" else "Feed R")
+            v.setTextColor(R.id.btn_left, if (state.suggestedSide == "left") 0xFFB5ABFC.toInt() else 0xFFC7C0F0.toInt())
+            v.setTextColor(R.id.btn_right, if (state.suggestedSide == "right") 0xFFB5ABFC.toInt() else 0xFFC7C0F0.toInt())
 
             if (state.dueReminder != null) {
                 v.setViewVisibility(R.id.tv_reminder, View.VISIBLE)

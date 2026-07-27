@@ -17,11 +17,13 @@ data class WidgetState(
     val todayDiapers: Int,
     val dueReminder: String?,
     val feedAlertHours: Double?,
+    val suggestedSide: String?,
     val fetchedAt: Long,
 ) {
     fun toJson(): String {
         val o = JSONObject()
         o.put("babyName", babyName)
+        if (suggestedSide != null) o.put("suggestedSide", suggestedSide)
         if (activeFeed != null) o.put("af", JSONObject().put("type", activeFeed.type).put("feedStart", activeFeed.feedStart).put("paused", activeFeed.paused))
         if (sleepStart != null) o.put("sleepStart", sleepStart)
         if (lastFeedStart != null) o.put("lastFeedStart", lastFeedStart)
@@ -50,6 +52,7 @@ data class WidgetState(
                 todayDiapers = o.optInt("todayDiapers"),
                 dueReminder = if (o.has("dueReminder")) o.optString("dueReminder") else null,
                 feedAlertHours = if (o.has("feedAlertHours")) o.optDouble("feedAlertHours") else null,
+                suggestedSide = if (o.has("suggestedSide")) o.optString("suggestedSide") else null,
                 fetchedAt = o.optLong("fetchedAt"),
             )
         } catch (e: Exception) {
@@ -107,6 +110,10 @@ object StateBuilder {
         var todayFeeds = 0
         var todayDiapers = 0
         var vitdDoneToday = false
+        var lastBreastTs = 0L
+        var lastBreastType: String? = null
+        var lastBreastLeft = 0L
+        var lastBreastRight = 0L
         val today0 = startOfToday()
 
         if (entries != null) {
@@ -119,6 +126,13 @@ object StateBuilder {
                     "feed" -> {
                         if (lastFeedStart == null || ts > lastFeedStart!!) lastFeedStart = ts
                         if (ts >= today0) todayFeeds++
+                        val type = str(ef.optJSONObject("type"))
+                        if (type != null && type != "bottle" && ts > lastBreastTs) {
+                            lastBreastTs = ts
+                            lastBreastType = type
+                            lastBreastLeft = num(ef.optJSONObject("leftSecs")) ?: 0L
+                            lastBreastRight = num(ef.optJSONObject("rightSecs")) ?: 0L
+                        }
                     }
                     "diaper" -> {
                         if (lastDiaperTs == null || ts > lastDiaperTs!!) lastDiaperTs = ts
@@ -148,6 +162,15 @@ object StateBuilder {
             feedAlertHours = map(f.optJSONObject("feedAlert"))?.let { fa ->
                 if (bool(fa.optJSONObject("enabled"))) numD(fa.optJSONObject("hours")) ?: 3.0 else null
             },
+            // Mirrors the app: opposite of the last side; after a both-sides
+            // feed, the side that got less time.
+            suggestedSide = if (activeFeed == null && lastBreastType != null) {
+                when (lastBreastType) {
+                    "left" -> "right"
+                    "right" -> "left"
+                    else -> if (lastBreastLeft <= lastBreastRight) "left" else "right"
+                }
+            } else null,
             fetchedAt = now,
         )
     }

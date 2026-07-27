@@ -84,11 +84,11 @@
         android:id="@+id/tv_reminder"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="2dp"
+        android:layout_marginTop="4dp"
         android:text=""
-        android:textSize="12sp"
+        android:textSize="15sp"
         android:textStyle="bold"
-        android:textColor="#9184D9"
+        android:textColor="#B5ABFC"
         android:visibility="gone" />
 
     <LinearLayout
@@ -104,40 +104,44 @@
         <Button
             android:id="@+id/btn_wet"
             android:layout_width="0dp"
-            android:layout_height="34dp"
+            android:layout_height="44dp"
             android:layout_weight="1"
             android:text="Wet ✓"
-            android:textSize="11sp"
+            android:textSize="13sp"
             android:textColor="#E9E9ED"
             android:background="@drawable/btn_bg" />
+        <!-- Sleep button intentionally hidden (2026-07-26) with the sleep/awake
+             display — sleep logging lives in the app. Restore by setting
+             visibility to visible and re-enabling the renderer line. -->
         <Button
             android:id="@+id/btn_sleep"
             android:layout_width="0dp"
-            android:layout_height="34dp"
+            android:layout_height="44dp"
             android:layout_weight="1"
             android:layout_marginStart="6dp"
             android:text="Sleep"
-            android:textSize="11sp"
+            android:textSize="13sp"
             android:textColor="#E9E9ED"
+            android:visibility="gone"
             android:background="@drawable/btn_bg" />
         <Button
             android:id="@+id/btn_left"
             android:layout_width="0dp"
-            android:layout_height="34dp"
+            android:layout_height="44dp"
             android:layout_weight="1"
             android:layout_marginStart="6dp"
             android:text="Feed L"
-            android:textSize="11sp"
+            android:textSize="13sp"
             android:textColor="#C7C0F0"
             android:background="@drawable/btn_bg" />
         <Button
             android:id="@+id/btn_right"
             android:layout_width="0dp"
-            android:layout_height="34dp"
+            android:layout_height="44dp"
             android:layout_weight="1"
             android:layout_marginStart="6dp"
             android:text="Feed R"
-            android:textSize="11sp"
+            android:textSize="13sp"
             android:textColor="#C7C0F0"
             android:background="@drawable/btn_bg" />
     </LinearLayout>

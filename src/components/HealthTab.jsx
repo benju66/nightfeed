@@ -1,4 +1,4 @@
-import { fmtClock, dayKey, heightUnitFor, tempUnitFor, weightUnitFor, convWeight, convHeight } from '../lib/format.js'
+import { fmtClock, dayKey, heightUnitFor, tempUnitFor, weightUnitFor, convWeight, convHeight, fmtLbOz } from '../lib/format.js'
 import { groupDays } from '../lib/derive.js'
 
 function Sparkline({ points, id }) {
@@ -28,11 +28,11 @@ function Sparkline({ points, id }) {
   )
 }
 
-function GrowthRow({ label, points, unit }) {
+function GrowthRow({ label, points, unit, fmt }) {
   if (!points.length) return null
   const latest = points[points.length - 1]
   const fmtDate = (ts) => new Date(ts).toLocaleDateString([], { month: 'short', day: 'numeric' })
-  const fmtVal = (v) => (Math.round(v * 10) / 10) + ' ' + unit
+  const fmtVal = fmt || ((v) => (Math.round(v * 10) / 10) + ' ' + unit)
   return (
     <div className="growth-row">
       <div className="growth-head">
@@ -59,8 +59,8 @@ function GrowthRow({ label, points, unit }) {
 
 export default function HealthTab({
   entries, u, timeFormat, now,
-  weight, setWeight, height, setHeight, temp, setTemp, med, setMed, medWho, setMedWho,
-  logVitD, logWeight, logHeight, logTemp, logMed,
+  weight, setWeight, weightOz, setWeightOz, height, setHeight, head, setHead, temp, setTemp, med, setMed, medWho, setMedWho,
+  logVitD, logWeight, logHeight, logHead, logTemp, logMed,
   onEdit, onDelete,
 }) {
   const todayK = dayKey(now)
@@ -68,16 +68,18 @@ export default function HealthTab({
   const vitd = entries.filter((e) => e.kind === 'health' && e.type === 'vitd' && dayKey(e.ts) === todayK).sort((x, y) => y.ts - x.ts)[0]
   const lastW = lastOf('weight')
   const lastH = lastOf('height')
+  const lastHead = lastOf('head')
 
-  const wu = weightUnitFor(u)
-  const hu = heightUnitFor(u)
+  const wu = weightUnitFor()
+  const hu = heightUnitFor()
   const series = (type, conv, unit) =>
     entries
       .filter((e) => e.kind === 'health' && e.type === type)
       .sort((a, b) => a.ts - b.ts)
-      .map((e) => ({ ts: e.ts, value: conv(e.value, e[type === 'weight' ? 'wunit' : 'hunit'], unit) }))
+      .map((e) => ({ ts: e.ts, value: conv(e.value, e[type === 'weight' ? 'wunit' : 'hunit'] || unit, unit) }))
   const weights = series('weight', convWeight, wu)
   const heights = series('height', convHeight, hu)
+  const heads = series('head', convHeight, 'cm')
 
   const healthEntries = entries.filter((e) => e.kind === 'health')
   const days = groupDays(healthEntries, 'health', timeFormat, now)
@@ -95,10 +97,15 @@ export default function HealthTab({
             <div className="amount-row">
               <input
                 className="input" type="number" min="0" inputMode="decimal"
-                placeholder={lastW ? 'Last ' + lastW.value + ' ' + lastW.wunit : 'Weight'}
-                value={weight} onChange={(ev) => setWeight(ev.target.value)} style={{ flex: 1 }}
+                placeholder={lastW ? 'Last ' + (lastW.wunit === 'lb' ? fmtLbOz(lastW.value) : lastW.value + ' ' + lastW.wunit) : 'Weight'}
+                value={weight} onChange={(ev) => setWeight(ev.target.value)} style={{ flex: 1, minWidth: 0 }}
               />
-              <span className="unit-label">{wu}</span>
+              <span className="unit-label">lb</span>
+              <input
+                className="input" type="number" min="0" max="15" inputMode="decimal" placeholder="0"
+                value={weightOz} onChange={(ev) => setWeightOz(ev.target.value)} style={{ width: 52 }}
+              />
+              <span className="unit-label">oz</span>
             </div>
             <button className="btn btn-secondary" style={{ width: '100%', minHeight: 32, fontSize: 13 }} onClick={logWeight}>Log weight</button>
           </div>
@@ -118,13 +125,27 @@ export default function HealthTab({
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
             <div className="amount-row">
               <input
+                className="input" type="number" min="0" inputMode="decimal"
+                placeholder={lastHead ? 'Last ' + lastHead.value + ' cm' : 'Head'}
+                value={head} onChange={(ev) => setHead(ev.target.value)} style={{ flex: 1 }}
+              />
+              <span className="unit-label">cm</span>
+            </div>
+            <button className="btn btn-secondary" style={{ width: '100%', minHeight: 32, fontSize: 13 }} onClick={logHead}>Log head</button>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div className="amount-row">
+              <input
                 className="input" type="number" min="0" inputMode="decimal" placeholder="Temp"
                 value={temp} onChange={(ev) => setTemp(ev.target.value)} style={{ flex: 1 }}
               />
-              <span className="unit-label">{tempUnitFor(u)}</span>
+              <span className="unit-label">{tempUnitFor()}</span>
             </div>
             <button className="btn btn-secondary" style={{ width: '100%', minHeight: 32, fontSize: 13 }} onClick={logTemp}>Log temp</button>
           </div>
+          <div style={{ flex: 1 }} />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <input
@@ -148,12 +169,13 @@ export default function HealthTab({
 
       <section className="card elev-sm" style={{ gap: 12 }}>
         <span className="card-kicker">Growth</span>
-        {weights.length === 0 && heights.length === 0 ? (
-          <p className="growth-hint" style={{ padding: '4px 0' }}>Log a weight or height above to start growth tracking.</p>
+        {weights.length === 0 && heights.length === 0 && heads.length === 0 ? (
+          <p className="growth-hint" style={{ padding: '4px 0' }}>Log a weight, height, or head measurement above to start growth tracking.</p>
         ) : (
           <>
-            <GrowthRow label="Weight" points={weights} unit={wu} />
+            <GrowthRow label="Weight" points={weights} unit={wu} fmt={fmtLbOz} />
             <GrowthRow label="Height" points={heights} unit={hu} />
+            <GrowthRow label="Head" points={heads} unit="cm" />
           </>
         )}
       </section>

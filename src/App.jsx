@@ -126,7 +126,9 @@ function Main({ code, onSwitchFamily }) {
   const [amount, setAmount] = useState('')
   const [pumpAmount, setPumpAmount] = useState('')
   const [weight, setWeight] = useState('')
+  const [weightOz, setWeightOz] = useState('')
   const [height, setHeight] = useState('')
+  const [head, setHead] = useState('')
   const [temp, setTemp] = useState('')
   const [med, setMed] = useState('')
   const [medWho, setMedWho] = useState('baby')
@@ -425,21 +427,31 @@ function Main({ code, onSwitchFamily }) {
   const logDiaper = (type) => logged({ kind: 'diaper', type, ts: Date.now() })
   const logVitD = () => logged({ kind: 'health', type: 'vitd', ts: Date.now() })
   const logWeight = () => {
-    const v = parseFloat(weight)
-    if (isNaN(v) || v <= 0) return
-    logged({ kind: 'health', type: 'weight', ts: Date.now(), value: v, wunit: weightUnitFor(u) })
+    // Two-field entry (lb + oz), stored as decimal pounds.
+    const lb = parseFloat(weight) || 0
+    const oz = parseFloat(weightOz) || 0
+    const v = lb + oz / 16
+    if (v <= 0) return
+    logged({ kind: 'health', type: 'weight', ts: Date.now(), value: Math.round(v * 1000) / 1000, wunit: weightUnitFor() })
     setWeight('')
+    setWeightOz('')
   }
   const logHeight = () => {
     const v = parseFloat(height)
     if (isNaN(v) || v <= 0) return
-    logged({ kind: 'health', type: 'height', ts: Date.now(), value: v, hunit: heightUnitFor(u) })
+    logged({ kind: 'health', type: 'height', ts: Date.now(), value: v, hunit: heightUnitFor() })
     setHeight('')
+  }
+  const logHead = () => {
+    const v = parseFloat(head)
+    if (isNaN(v) || v <= 0) return
+    logged({ kind: 'health', type: 'head', ts: Date.now(), value: v, hunit: 'cm' })
+    setHead('')
   }
   const logTemp = () => {
     const v = parseFloat(temp)
     if (isNaN(v) || v <= 0) return
-    logged({ kind: 'health', type: 'temp', ts: Date.now(), value: v, tunit: tempUnitFor(u) })
+    logged({ kind: 'health', type: 'temp', ts: Date.now(), value: v, tunit: tempUnitFor() })
     setTemp('')
   }
   const logMed = () => {
@@ -552,12 +564,14 @@ function Main({ code, onSwitchFamily }) {
             <HealthTab
               entries={allEntries} u={u} timeFormat={timeFormat} now={now}
               weight={weight} setWeight={setWeight}
+              weightOz={weightOz} setWeightOz={setWeightOz}
               height={height} setHeight={setHeight}
+              head={head} setHead={setHead}
               temp={temp} setTemp={setTemp}
               med={med} setMed={setMed}
               medWho={medWho} setMedWho={setMedWho}
               logVitD={logVitD} logWeight={logWeight}
-              logHeight={logHeight} logTemp={logTemp} logMed={logMed}
+              logHeight={logHeight} logHead={logHead} logTemp={logTemp} logMed={logMed}
               onEdit={(entry) => setEditingEntry(entry)}
               onDelete={(id) => {
                 if (window.confirm('Delete this entry?')) deleteEntry(code, id)

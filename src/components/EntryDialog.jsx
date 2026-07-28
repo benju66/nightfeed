@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import { toLocalDT, weightUnitFor, heightUnitFor, tempUnitFor } from '../lib/format.js'
+import { toLocalDT, weightUnitFor, heightUnitFor, tempUnitFor, convWeight } from '../lib/format.js'
 
 const KINDS = [
   ['feed', 'Feed'], ['bottle', 'Bottle'], ['pump', 'Pump'],
   ['diaper', 'Diaper'], ['sleep', 'Sleep'], ['health', 'Health'], ['note', 'Note'],
 ]
 const HEALTH_TYPES = [
-  ['vitd', 'Vit D'], ['weight', 'Weight'], ['height', 'Height'], ['temp', 'Temp'], ['med', 'Med'],
+  ['vitd', 'Vit D'], ['weight', 'Weight'], ['height', 'Height'], ['head', 'Head'], ['temp', 'Temp'], ['med', 'Med'],
 ]
 
 // Maps a stored entry onto the dialog's field state.
@@ -26,6 +26,8 @@ function fromEntry(e) {
     rightMins: '',
     amount: '',
     value: '',
+    wLb: '',
+    wOz: '',
     med: '',
     who: 'baby',
   }
@@ -51,6 +53,13 @@ function fromEntry(e) {
   } else if (e.kind === 'health') {
     base.healthType = e.type
     base.value = e.value != null ? String(e.value) : ''
+    if (e.type === 'weight' && e.value != null) {
+      // Weight edits use lb + oz fields; legacy kg entries convert on open.
+      const lb = e.wunit === 'kg' ? convWeight(e.value, 'kg', 'lb') : e.value
+      const totalOz = Math.round(lb * 16)
+      base.wLb = String(Math.floor(totalOz / 16))
+      base.wOz = String(totalOz % 16)
+    }
     base.med = e.med || ''
     base.who = e.who || 'baby'
   }
@@ -132,13 +141,18 @@ export default function EntryDialog({ entry, now, u, defaultBottleKind, onSave, 
         if (!m) return null
         e.med = m
         if (f.who === 'mom') e.who = 'mom'
+      } else if (f.healthType === 'weight') {
+        const v = (num(f.wLb) || 0) + (num(f.wOz) || 0) / 16
+        if (!v) return null
+        e.value = Math.round(v * 1000) / 1000
+        e.wunit = weightUnitFor()
       } else if (f.healthType !== 'vitd') {
         const v = num(f.value)
         if (!v) return null
         e.value = v
-        if (f.healthType === 'weight') e.wunit = weightUnitFor(u)
-        else if (f.healthType === 'height') e.hunit = heightUnitFor(u)
-        else e.tunit = tempUnitFor(u)
+        if (f.healthType === 'height') e.hunit = heightUnitFor()
+        else if (f.healthType === 'head') e.hunit = 'cm'
+        else e.tunit = tempUnitFor()
       }
     }
     return e
@@ -255,10 +269,22 @@ export default function EntryDialog({ entry, now, u, defaultBottleKind, onSave, 
                   </div>
                 </>
               )}
-              {f.healthType !== 'med' && f.healthType !== 'vitd' && (
+              {f.healthType === 'weight' && (
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <div className="field" style={{ flex: 1 }}>
+                    <label>Weight (lb)</label>
+                    <input className="input" type="number" min="0" inputMode="numeric" placeholder="0" value={f.wLb} onChange={setEv('wLb')} />
+                  </div>
+                  <div className="field" style={{ flex: 1 }}>
+                    <label>+ oz</label>
+                    <input className="input" type="number" min="0" max="15" inputMode="decimal" placeholder="0" value={f.wOz} onChange={setEv('wOz')} />
+                  </div>
+                </div>
+              )}
+              {f.healthType !== 'med' && f.healthType !== 'vitd' && f.healthType !== 'weight' && (
                 <div className="field">
                   <label>
-                    {f.healthType === 'weight' ? 'Weight (' + weightUnitFor(u) + ')' : f.healthType === 'height' ? 'Height (' + heightUnitFor(u) + ')' : 'Temp (' + tempUnitFor(u) + ')'}
+                    {f.healthType === 'height' ? 'Height (in)' : f.healthType === 'head' ? 'Head circumference (cm)' : 'Temp (°F)'}
                   </label>
                   <input className="input" type="number" min="0" inputMode="decimal" value={f.value} onChange={setEv('value')} />
                 </div>

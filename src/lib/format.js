@@ -35,16 +35,28 @@ export function fmtVol(v, u) {
   return (u === 'oz' ? v.toFixed(1) : String(Math.round(v))) + ' ' + u
 }
 
-export function weightUnitFor(u) {
-  return u === 'oz' ? 'lb' : 'kg'
+// Measurement units are fixed (user decision 2026-07-27): weight lb + oz,
+// height inches, temp °F, head circumference cm. The oz/ml setting only
+// affects milk volumes. Legacy kg/cm/°C entries still display via conv*.
+export function weightUnitFor() {
+  return 'lb'
 }
 
-export function heightUnitFor(u) {
-  return u === 'oz' ? 'in' : 'cm'
+export function heightUnitFor() {
+  return 'in'
 }
 
-export function tempUnitFor(u) {
-  return u === 'oz' ? '°F' : '°C'
+export function tempUnitFor() {
+  return '°F'
+}
+
+// Decimal pounds → "7 lb 4 oz" (oz rounded to the nearest whole).
+export function fmtLbOz(lb) {
+  const totalOz = Math.round(lb * 16)
+  const l = Math.floor(totalOz / 16)
+  const o = totalOz % 16
+  if (!l) return o + ' oz'
+  return o ? l + ' lb ' + o + ' oz' : l + ' lb'
 }
 
 export function convWeight(v, from, to) {

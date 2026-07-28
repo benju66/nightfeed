@@ -1,6 +1,6 @@
 // Derived views over the entry list — history rows, day groups, 7-day trend,
 // stat-strip values. Ported from the design prototype's Component class.
-import { fmtMins, fmtClock, dayKey, toUnits, fmtVol } from './format.js'
+import { fmtMins, fmtClock, dayKey, toUnits, fmtVol, fmtLbOz } from './format.js'
 
 export function rowFor(e, timeFormat) {
   let tag, tagClass, detail
@@ -20,8 +20,9 @@ export function rowFor(e, timeFormat) {
     tag = 'Health'
     tagClass = 'tag-neutral'
     if (e.type === 'vitd') detail = 'Vitamin D given'
-    else if (e.type === 'weight') detail = 'Weight · ' + e.value + ' ' + e.wunit
+    else if (e.type === 'weight') detail = 'Weight · ' + (e.wunit === 'lb' ? fmtLbOz(e.value) : e.value + ' ' + e.wunit)
     else if (e.type === 'height') detail = 'Height · ' + e.value + ' ' + e.hunit
+    else if (e.type === 'head') detail = 'Head · ' + e.value + ' ' + (e.hunit || 'cm')
     else if (e.type === 'temp') detail = 'Temp · ' + e.value + ' ' + e.tunit
     else detail = (e.who === 'mom' ? 'Mom · ' : '') + (e.med || 'Medicine')
   } else if (e.kind === 'diaper') {

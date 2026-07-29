@@ -37,7 +37,7 @@ export default function HistoryTab({
     try {
       const all = await getAllEntries()
       const cutoff = daysBack ? now - daysBack * 86400000 : 0
-      printSummary(all.filter((e) => e.ts >= cutoff), babyName, birth, timeFormat, now, daysBack ? label : '')
+      printSummary(all.filter((e) => e.ts >= cutoff), babyName, birth, timeFormat, now, daysBack ? label : '', u)
     } finally {
       setBusy('')
     }
